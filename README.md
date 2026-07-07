@@ -96,7 +96,6 @@ paper/canoncite.md         the research paper draft (working format; see note be
 release/                   HuggingFace release builder (public-domain gate, datasheet, license)
 results/gpu_qwen14b/        experiment outputs (per-system, per-corpus, per-language JSONL/MD)
 PRODUCTS.md                 the 5-product roadmap this research feeds (dataset, paper, demo, OSS lib, commercial vertical)
-product/live-app-plan.md    build plan for the public-facing demo
 ENGINEERING_LOG.md          step-by-step build narrative of the systems (B/C/D/E/E2)
 BENCHMARK_DESIGN.md, RESEARCH_PLAN.md, RELATED_WORK*.md   design + prior-art documents
 ```
