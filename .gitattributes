@@ -1,0 +1,3 @@
+# Raw scraped source pages kept only for corpus-build provenance/reproducibility —
+# not part of the dataset, method, or code; exclude from GitHub language stats.
+canoncite/data/corpora/**/raw/** linguist-vendored
