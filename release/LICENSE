@@ -1,0 +1,101 @@
+CANONCITE (v0) — LICENSE
+========================
+
+This release contains two kinds of material with two different licensing
+statuses. Read both sections.
+
+--------------------------------------------------------------------------------
+1. ANNOTATIONS / QUESTIONS  —  Creative Commons Attribution 4.0 International
+--------------------------------------------------------------------------------
+
+The benchmark annotations authored by the CANONCITE project — the questions,
+gold_citations, near_miss_distractors, gold_answer, answer_support, question
+typing, ambiguity labels, translations, provenance metadata, the manifest, and
+the accompanying documentation — are licensed under the
+
+    Creative Commons Attribution 4.0 International License (CC BY 4.0)
+    https://creativecommons.org/licenses/by/4.0/
+
+You are free to share and adapt this material for any purpose, including
+commercially, provided you give appropriate credit, link to the license, and
+indicate if changes were made. Attribute as:
+
+    CANONCITE (Shastra / Scripture-RAG), v0. Licensed under CC BY 4.0.
+
+THE MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. Gold answers are
+textual-attribution judgments, NOT doctrinal or theological rulings for any
+tradition.
+
+(Benchmark code — metrics, id grammar, build tooling — is separately available
+under the MIT/Apache-2.0 license in the project repository, not covered by this
+file.)
+
+================================================================================
+                                   NOTICE
+================================================================================
+2. CORPUS TEXT  —  PUBLIC DOMAIN, PER SOURCE
+--------------------------------------------------------------------------------
+
+The scripture and legal text units in `corpora/<corpus>/corpus_index.jsonl` are
+NOT owned by the CANONCITE project. Each corpus reproduces text from a
+public-domain edition. The underlying canonical texts (Sanskrit / Pali / Tamil /
+Gurmukhi scripture, and the Constitution of India) are ancient and/or
+government works in the public domain; the specific English translations used
+are public-domain editions. Per-record provenance (edition, source URL,
+retrieval date) is in each `corpus_index.jsonl`; per-corpus details and sha256
+hashes are in each `VALIDATION.md`.
+
+Public-domain editions included in this release:
+
+  * Bhagavad Gita      — Annie Besant, "The Bhagavad-Gita" (4th ed., 1905),
+                         public domain. Sanskrit via the gita open dataset
+                         (Devanagari + IAST), ancient/public-domain.
+  * Bible              — The World English Bible (WEB), public domain.
+  * Constitution of    — Government of India public-domain text of the
+    India               Constitution.
+  * Dhammapada         — F. Max Müller, Sacred Books of the East vol. X (1881),
+                         public domain. Pali root text via SuttaCentral
+                         (Mahāsaṅgīti), ancient/public-domain.
+  * Upanishads         — F. Max Müller, Sacred Books of the East (Upanishads),
+                         public domain. Sanskrit via GRETIL, ancient/PD.
+  * Yoga Sutras        — Swami Vivekananda / J. H. Woods, Raja-Yoga aphorisms
+                         (1896), public domain. Sanskrit via GRETIL, ancient/PD.
+  * Ramayana           — Sanskrit (Vālmīki, Baroda Critical Edition) via GRETIL;
+                         R. T. H. Griffith English (1870-74) is public domain.
+                         RELEASED AS SANSKRIT ONLY (see exclusions).
+  * Mahabharata        — Sanskrit via GRETIL; K. M. Ganguli English is public
+                         domain. RELEASED AS SANSKRIT ONLY (see exclusions).
+  * Thirukkural        — G. U. Pope, "Thirukkural" (1886), public domain.
+                         Classical Tamil kural text, ancient/public-domain.
+  * Guru Granth Sahib  — Gurmukhi original (public domain) served via
+                         GurbaniNow / BaniDB (Shabad OS database, MIT-licensed
+                         code; gurbani text public domain).
+                         RELEASED AS GURMUKHI ONLY (see exclusions).
+
+Digitization note: some digitizations (e.g. GRETIL) distribute their markup
+under CC-BY-NC-SA 4.0 for reference use; the *underlying texts* are ancient and
+public-domain. Devanagari originals for some Sanskrit corpora are produced by
+deterministic, lossless IAST→Devanagari transliteration of the fetched GRETIL
+text (the same text in a second script).
+
+--------------------------------------------------------------------------------
+3. DELIBERATELY EXCLUDED — COPYRIGHTED / UNALIGNED TRANSLATIONS
+--------------------------------------------------------------------------------
+
+The following in-copyright (or non-aligned) English translations are NOT part of
+this release and were removed by the build tooling:
+
+  * Guru Granth Sahib  — Dr. Sant Singh Khalsa English translation
+                         (copyrighted, US term to ~2096). Excluded; kept private.
+  * Ramayana           — IIT-Kanpur English translation (copyrighted). Excluded;
+                         kept private. (Griffith PD English could not be aligned
+                         to the shloka grid.)
+  * Bhagavad Gita      — BBT / Bhaktivedanta (Prabhupada) translation.
+                         Not used anywhere in this dataset.
+  * Mahabharata        — Ganguli English (public domain) is excluded from the
+                         released text layer because it does not align to the
+                         critical-edition shloka grid.
+
+The build script `build_release.py` enforces these exclusions: it aborts if any
+private/copyrighted artifact, off-allowlist `translation_source`, or English
+text in an excluded-English corpus is found.

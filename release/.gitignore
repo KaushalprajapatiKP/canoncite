@@ -1,0 +1,3 @@
+# The assembled release bundle is large (~150M) and fully reproducible from
+# build_release.py against the frozen corpora — don't track the generated copy.
+canoncite-v0/

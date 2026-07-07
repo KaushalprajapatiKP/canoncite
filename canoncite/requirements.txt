@@ -1,0 +1,22 @@
+# CANONCITE dependencies.
+#
+# The METRIC HARNESS (metrics.py, eval.py, ids.py, items.py, corpus_io.py) is
+# pure standard library — needs NOTHING here. Run its tests with just python3.
+#
+# The CORPUS BUILDERS (canoncite/corpus/build_*.py) fetch + parse public-domain
+# sources and need:
+requests>=2.31          # HTTP fetching of public-domain sources
+beautifulsoup4>=4.12     # HTML parsing (sacred-texts, Wikisource, GoI text)
+indic-transliteration>=2.3   # IAST<->Devanagari (Gita, Yoga Sutras, Ramayana, Mahabharata)
+
+# Trilingual translation pass (canoncite/seed/translate.py) — run on a GPU box:
+# torch>=2.2                     # install the build matching your CUDA
+# transformers>=4.40
+# IndicTransToolkit>=1.0         # AI4Bharat IndicTrans2 pre/post-processing
+# sentencepiece>=0.2
+# (model ai4bharat/indictrans2-en-indic-1B is pulled from HuggingFace on first run)
+
+# Optional / for later phases (annotation agreement, baselines):
+# pytest>=8                # test runner (tests also run standalone via python3)
+# krippendorff             # inter-annotator agreement (alpha-MASI) for item annotation
+# scikit-learn             # Cohen's/Fleiss' kappa for categorical labels

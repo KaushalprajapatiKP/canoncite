@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CANONCITE — Review Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d12; --bg2:#0e1117; --card:#141922; --card2:#171d28; --line:#232b38;
+    --ink:#eef2f8; --mut:#94a1b5; --dim:#6b7787;
+    --acc:#5b8cff; --acc2:#7aa2ff; --ok:#34d399; --no:#fb7185; --edit:#fbbf24;
+    --glow:0 0 0 1px #ffffff08, 0 20px 60px -20px #0009;
+    --r:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16233f22,transparent),var(--bg);
+       color:var(--ink);font:15px/1.6 Inter,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .deva,[lang="hi"],[lang="sa"]{font-family:"Noto Serif Devanagari",Inter,serif}
+  button,input,select,textarea{font:inherit;color:var(--ink)}
+  button{cursor:pointer;border:none;background:none}
+
+  /* top bar */
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(#0b0d12ee,#0b0d12cc);backdrop-filter:blur(14px);
+         border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.4px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--acc),#a855f7);box-shadow:0 4px 14px -2px #5b8cff88}
+  .brand small{color:var(--mut);font-weight:500;letter-spacing:.3px}
+  .field{display:flex;flex-direction:column;gap:3px}
+  .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .field input,.field select{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 11px;outline:none;transition:.15s}
+  .field input:focus,.field select:focus{border-color:var(--acc);box-shadow:0 0 0 3px #5b8cff22}
+  .toggle{display:flex;align-items:center;gap:7px;color:var(--mut);font-size:13px;cursor:pointer;user-select:none}
+  .spacer{flex:1}
+  .ring{--p:0;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;
+        background:conic-gradient(var(--acc) calc(var(--p)*1%),#222b39 0);color:var(--ink)}
+  .ring span{width:34px;height:34px;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+  .pgtext{font-size:12.5px;color:var(--mut);text-align:right;line-height:1.3}
+  .pgtext b{color:var(--ink)}
+
+  main{max-width:900px;margin:26px auto 80px;padding:0 20px}
+  .card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:22px;
+        padding:26px 28px;box-shadow:var(--glow);animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{font-size:11px;font-weight:600;padding:4px 11px;border-radius:20px;background:#1c2432;color:var(--mut);border:1px solid var(--line);text-transform:capitalize}
+  .chip.type{background:#16233f;color:var(--acc2);border-color:#2a3a5f}
+  .chip.abstain{background:#3a2c0e;color:var(--edit);border-color:#5a4410}
+  .chip.id{margin-left:auto;font-family:ui-monospace,monospace;color:var(--dim);background:transparent;border:none}
+
+  .langs{display:inline-flex;gap:4px;padding:4px;background:#0e131c;border:1px solid var(--line);border-radius:999px;margin:2px 0 14px}
+  .langs button{padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;color:var(--mut);transition:.15s}
+  .langs button.on{background:linear-gradient(135deg,var(--acc),#7c6cff);color:#fff;box-shadow:0 6px 16px -6px #5b8cffaa}
+
+  .q{font-size:22px;font-weight:600;letter-spacing:-.2px;margin:2px 0 10px}
+  .ans{color:#b9c4d4;background:#0f141d;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:11px 14px;margin:8px 0}
+  .ans em{color:var(--dim);font-style:normal;font-size:12px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px}
+
+  .sec{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+  .sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  .cite{border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin:8px 0;background:#101620;transition:.15s}
+  .cite:hover{border-color:#31405a}
+  .cite.gold{border-left:3px solid var(--ok)}
+  .cite.miss{border-left:3px solid var(--edit);opacity:.92}
+  .cite .id{font-family:ui-monospace,monospace;font-weight:700;font-size:13px}
+  .cite.gold .id{color:var(--ok)} .cite.miss .id{color:var(--edit)}
+  .cite .txt{color:#c9d3e0;margin-top:5px}
+  .cite .orig{color:#9db0c9;margin-top:4px;font-size:15px}
+  .cite .none{color:var(--dim);font-style:italic}
+
+  .verdict{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:6px 12px;border-radius:10px;margin-top:14px}
+  .v-approve{background:#0f2e20;color:var(--ok)} .v-reject{background:#33141b;color:var(--no)} .v-edit{background:#332708;color:var(--edit)}
+
+  .acts{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;margin-top:22px}
+  .acts button{padding:14px;font-weight:700;font-size:15px;border-radius:14px;border:1px solid var(--line);transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .acts button:hover{transform:translateY(-1px)}
+  .approve{background:linear-gradient(180deg,#123a28,#0f2e20);color:var(--ok);border-color:#1c5c3f}
+  .approve:hover{box-shadow:0 10px 24px -10px #34d39988}
+  .reject{background:linear-gradient(180deg,#3a1620,#2e1119);color:var(--no);border-color:#6b2233}
+  .editb{background:#1a1d10;color:var(--edit);border-color:#4a3a12}
+  .kbd{font-size:10px;opacity:.6;font-family:ui-monospace,monospace;border:1px solid currentColor;border-radius:5px;padding:0 5px;margin-left:2px}
+
+  .editbox{margin-top:16px;padding:16px;border:1px dashed #4a3a12;border-radius:14px;background:#14110a;display:none}
+  .editbox.show{display:block;animation:rise .2s}
+  .editbox label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);display:block;margin:10px 0 4px}
+  .editbox input,.editbox select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;outline:none}
+  textarea#notes{width:100%;min-height:56px;margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;outline:none;resize:vertical}
+  textarea#notes:focus{border-color:var(--acc)}
+
+  .nav{display:flex;align-items:center;justify-content:space-between;margin-top:16px;color:var(--dim);font-size:12px}
+  .nav button{padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--mut)}
+  .nav button:hover{border-color:var(--acc);color:var(--ink)}
+  .empty{text-align:center;color:var(--mut);padding:60px 20px}
+  .empty .big{font-size:44px;margin-bottom:10px}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:#0f141d;border:1px solid var(--line);
+         color:var(--ink);padding:11px 18px;border-radius:12px;box-shadow:var(--glow);opacity:0;transition:.25s;pointer-events:none;font-weight:600;font-size:13px}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="dot"></div>CANONCITE <small>Review Studio</small></div>
+  <div class="field"><label>Reviewer</label><input id="reviewer" placeholder="your name" style="width:130px"/></div>
+  <div class="field"><label>Corpus</label><select id="corpus" style="min-width:180px"></select></div>
+  <label class="toggle"><input type="checkbox" id="onlyunrev"/> unreviewed only</label>
+  <div class="spacer"></div>
+  <div class="pgtext"><b id="cdone">0</b> / <span id="ctot">0</span> reviewed<br><span id="cpos" style="color:var(--dim)"></span></div>
+  <div class="ring" id="ring"><span id="ringp">0%</span></div>
+</header>
+<main id="main"><div class="card"><div class="empty"><div class="big">📜</div>Enter your name and pick a corpus to begin.</div></div></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+let ITEMS=[], I=0, CORPUS="", REVIEWER="", LANG="en";
+const LANGNAME={en:"English",hi:"हिन्दी",sa:"संस्कृत",ta:"தமிழ்",pa:"ਪੰਜਾਬੀ",pi:"Pāli"};
+const nativeLangOf=items=>{for(const it of items)for(const l of Object.keys(it.translations||{}))if(l!=="hi")return l;return null;};
+const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1400);}
+
+async function loadCorpora(){
+  const cs=await (await fetch("/api/corpora")).json();
+  $("#corpus").innerHTML='<option value="">— select —</option>'+cs.map(c=>`<option value="${c.corpus}">${c.corpus.replace(/_/g," ")} · ${c.n_items}</option>`).join("");
+}
+async function loadItems(){
+  REVIEWER=$("#reviewer").value.trim(); CORPUS=$("#corpus").value;
+  localStorage.setItem("reviewer",REVIEWER);
+  if(!REVIEWER||!CORPUS){$("#main").innerHTML='<div class="card"><div class="empty"><div class="big">📜</div>Enter your name and pick a corpus.</div></div>';return;}
+  const d=await (await fetch(`/api/items?corpus=${CORPUS}&reviewer=${encodeURIComponent(REVIEWER)}`)).json();
+  ITEMS=d.items||[]; I=0; if($("#onlyunrev").checked)jumpUnrev(); render();
+}
+function jumpUnrev(){const j=ITEMS.findIndex(it=>!it._verdict); if(j>=0)I=j;}
+function setLang(l){LANG=l;render();}
+function go(d){I=Math.max(0,Math.min(I+d,ITEMS.length-1));render();}
+
+function render(){
+  const done=ITEMS.filter(x=>x._verdict).length, tot=ITEMS.length, pct=tot?Math.round(100*done/tot):0;
+  $("#cdone").textContent=done;$("#ctot").textContent=tot;$("#cpos").textContent=tot?`item ${I+1} of ${tot}`:"";
+  $("#ring").style.setProperty("--p",pct);$("#ringp").textContent=pct+"%";
+  if(!tot){$("#main").innerHTML='<div class="card"><div class="empty">No items.</div></div>';return;}
+  const it=ITEMS[I], nat=nativeLangOf(ITEMS), langs=["en","hi"].concat(nat&&nat!=="hi"?[nat]:[]);
+  const tr=l=>l==="en"?it.question:(it.translations?.[l]?.question);
+  const ta=l=>l==="en"?it.gold_answer:(it.translations?.[l]?.gold_answer);
+  const q=tr(LANG)||`<span class="none">— no ${LANGNAME[LANG]||LANG} translation —</span>`;
+  const a=ta(LANG);
+  const isDeva=["hi","sa"].includes(LANG);
+  const citeHtml=(src,cls)=>src.map(s=>`<div class="cite ${cls}">
+      <span class="id">${esc(s.id)}</span>
+      ${s.heading?`<div class="txt"><b>${esc(s.heading)}</b></div>`:""}
+      ${s.text_en?`<div class="txt">${esc(s.text_en)}</div>`:(s.original?"":'<div class="txt none">no English — verify against the original script →</div>')}
+      ${s.original?`<div class="orig deva">${esc(s.original)}</div>`:""}
+      ${s.translit?`<div class="orig" style="font-style:italic;color:#8ea3bd">${esc(s.translit)}</div>`:""}</div>`).join("");
+  const v=it._verdict;
+  $("#main").innerHTML=`<div class="card">
+    <div class="top">
+      <span class="chip type">${esc(it.question_type)}</span>
+      <span class="chip">ambiguity · ${esc(it.ambiguity)}</span>
+      ${it.must_abstain?'<span class="chip abstain">must abstain ⚠</span>':""}
+      <span class="chip id">${esc(it.id)}</span>
+    </div>
+    <div class="langs">${langs.map(l=>`<button class="${l===LANG?'on':''}" onclick="setLang('${l}')">${LANGNAME[l]||l}</button>`).join("")}</div>
+    <div class="q" ${isDeva?'lang="hi"':''}>${q}</div>
+    ${a?`<div class="ans"><em>draft answer</em>${esc(a)}</div>`:""}
+    <div class="sec">Gold citation${it.gold_citations.length>1?"s":""} — the answer must rest on these</div>
+    ${it.gold_citations.length?citeHtml(it._gold_src,"gold"):'<div class="cite"><span class="none">— none — this is an ABSTAIN item; a correct system cites nothing here</span></div>'}
+    ${it._nearmiss_src.length?`<div class="sec">Near-miss distractors — real but wrong (traps)</div>${citeHtml(it._nearmiss_src,"miss")}`:""}
+    ${v?`<div class="verdict v-${v.status}">● your verdict: ${v.status}${v.notes?" — "+esc(v.notes):""}</div>`:""}
+    <div class="acts">
+      <button class="approve" onclick="verdict('approve')">✓ Approve <span class="kbd">A</span></button>
+      <button class="editb" onclick="toggleEdit()">✎ Edit <span class="kbd">E</span></button>
+      <button class="reject" onclick="verdict('reject')">✗ Reject <span class="kbd">R</span></button>
+    </div>
+    <div class="editbox" id="editbox">
+      <label>Gold citations (comma-separated IDs)</label>
+      <input id="e_gold" value="${esc(it.gold_citations.join(', '))}"/>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1"><label>Question type</label>
+          <select id="e_type">${["factual","retrieval","conceptual","interpretive","unanswerable"].map(t=>`<option ${t===it.question_type?'selected':''}>${t}</option>`).join("")}</select></div>
+        <div style="flex:1"><label>Ambiguity</label>
+          <select id="e_amb">${["low","medium","high"].map(t=>`<option ${t===it.ambiguity?'selected':''}>${t}</option>`).join("")}</select></div>
+      </div>
+      <button class="editb" style="margin-top:14px;padding:10px 16px;border-radius:10px;border:1px solid #4a3a12" onclick="verdict('edit')">Save edits →</button>
+    </div>
+    <textarea id="notes" placeholder="notes for the adjudicator (optional)">${esc(v?.notes||"")}</textarea>
+    <div class="nav">
+      <button onclick="go(-1)">← Prev</button>
+      <span>shortcuts · <b>A</b> approve · <b>E</b> edit · <b>R</b> reject · <b>←/→</b> navigate</span>
+      <button onclick="go(1)">Next →</button>
+    </div>
+  </div>`;
+}
+function toggleEdit(){$("#editbox").classList.toggle("show");}
+async function verdict(status){
+  const it=ITEMS[I];
+  const body={reviewer:REVIEWER,corpus:CORPUS,item_id:it.id,status,notes:$("#notes").value.trim()};
+  if(status==="edit")body.edits={gold_citations:$("#e_gold").value.split(",").map(s=>s.trim()).filter(Boolean),question_type:$("#e_type").value,ambiguity:$("#e_amb").value};
+  const r=await (await fetch("/api/verdict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json();
+  if(r.error){toast("⚠ "+r.error);return;}
+  it._verdict=body; toast(status==="approve"?"✓ Approved":status==="reject"?"✗ Rejected":"✎ Edited");
+  if(I<ITEMS.length-1){I++;} render();
+}
+document.addEventListener("keydown",e=>{
+  if(["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName))return;
+  const k=e.key.toLowerCase();
+  if(k==="a")verdict("approve");else if(k==="r")verdict("reject");else if(k==="e")toggleEdit();
+  else if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1);
+});
+$("#reviewer").value=localStorage.getItem("reviewer")||"";
+$("#reviewer").addEventListener("change",loadItems);
+$("#corpus").addEventListener("change",loadItems);
+$("#onlyunrev").addEventListener("change",()=>{if($("#onlyunrev").checked)jumpUnrev();render();});
+loadCorpora();
+</script>
+</body>
+</html>
