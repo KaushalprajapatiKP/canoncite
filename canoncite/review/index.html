@@ -108,6 +108,7 @@
   <label class="toggle"><input type="checkbox" id="onlyunrev"/> unreviewed only</label>
   <div class="spacer"></div>
   <div class="pgtext"><b id="cdone">0</b> / <span id="ctot">0</span> reviewed<br><span id="cpos" style="color:var(--dim)"></span></div>
+  <div class="pgtext" style="text-align:right">sample total<br><b id="overall" style="color:var(--dim)">0/0</b></div>
   <div class="ring" id="ring"><span id="ringp">0%</span></div>
 </header>
 <main id="main"><div class="card"><div class="empty"><div class="big">📜</div>Enter your name and pick a corpus to begin.</div></div></main>
@@ -122,8 +123,16 @@ const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;"
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1400);}
 
 async function loadCorpora(){
-  const cs=await (await fetch("/api/corpora")).json();
-  $("#corpus").innerHTML='<option value="">— select —</option>'+cs.map(c=>`<option value="${c.corpus}">${c.corpus.replace(/_/g," ")} · ${c.n_items}</option>`).join("");
+  const rv=$("#reviewer").value.trim()||"anon";
+  const cs=await (await fetch(`/api/corpora?reviewer=${encodeURIComponent(rv)}`)).json();
+  const keep=$("#corpus").value;
+  const total=cs.reduce((a,c)=>a+c.n_items,0), done=cs.reduce((a,c)=>a+(c.n_done||0),0);
+  $("#corpus").innerHTML='<option value="">— select —</option>'+cs.map(c=>{
+    const tick=c.n_done>=c.n_items?" ✓":"";
+    return `<option value="${c.corpus}">${c.corpus.replace(/_/g," ")} · ${c.n_done||0}/${c.n_items}${tick}</option>`;
+  }).join("");
+  if(keep)$("#corpus").value=keep;
+  const el=$("#overall"); if(el)el.textContent=`${done}/${total} reviewed`;
 }
 async function loadItems(){
   REVIEWER=$("#reviewer").value.trim(); CORPUS=$("#corpus").value;
@@ -131,6 +140,7 @@ async function loadItems(){
   if(!REVIEWER||!CORPUS){$("#main").innerHTML='<div class="card"><div class="empty"><div class="big">📜</div>Enter your name and pick a corpus.</div></div>';return;}
   const d=await (await fetch(`/api/items?corpus=${CORPUS}&reviewer=${encodeURIComponent(REVIEWER)}`)).json();
   ITEMS=d.items||[]; I=0; if($("#onlyunrev").checked)jumpUnrev(); render();
+  loadCorpora();
 }
 function jumpUnrev(){const j=ITEMS.findIndex(it=>!it._verdict); if(j>=0)I=j;}
 function setLang(l){LANG=l;render();}
@@ -200,7 +210,7 @@ async function verdict(status){
   const r=await (await fetch("/api/verdict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json();
   if(r.error){toast("⚠ "+r.error);return;}
   it._verdict=body; toast(status==="approve"?"✓ Approved":status==="reject"?"✗ Rejected":"✎ Edited");
-  if(I<ITEMS.length-1){I++;} render();
+  if(I<ITEMS.length-1){I++;} render(); loadCorpora();
 }
 document.addEventListener("keydown",e=>{
   if(["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName))return;

@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 
+from . import closed_book
 from . import naive_rag
 from . import verified_rag
 from . import verified_rag2
@@ -63,7 +64,9 @@ def sweep(reader: str, k: int, limit: int | None, corpora: list[str],
         for lang in langs:
             if (corpus, lang) in done:
                 continue
-            if system == "E":  # System E (ours): verify + repair on top of retrieve->read
+            if system == "CB":  # closed-book control: no retrieval at all (Table 5.3)
+                res = closed_book.run(corpus, reader=reader, qlang=lang, limit=limit)
+            elif system == "E":  # System E (ours): verify + repair on top of retrieve->read
                 res = verified_rag.run(corpus, k=k, qlang=lang, limit=limit, retrieval=retrieval)
             elif system == "E2":  # System E2 (ours v2): joint discriminative exact-ID select
                 res = verified_rag2.run(corpus, k=k, qlang=lang, limit=limit, retrieval=retrieval)
@@ -94,9 +97,38 @@ def sweep(reader: str, k: int, limit: int | None, corpora: list[str],
     return rows
 
 
-def to_markdown(rows: list[dict], reader: str) -> str:
-    out = [f"# Preliminary CANONCITE baseline — System A (naive RAG), reader=`{reader}`", "",
-           "BM25 top-k retrieval; no dense/LLM yet. Shows the cross-lingual attribution gap.", "",
+SYSTEM_NAMES = {
+    "CB": "closed-book control (no retrieval)",
+    "A": "naive RAG (BM25)",
+    "B": "hybrid BM25+dense RRF",
+    "C": "hybrid + cross-encoder rerank",
+    "D": "Self-RAG/CRAG SOTA baseline",
+    "E": "exact-ID verify + repair",
+    "E2": "joint discriminative exact-ID selector (ours)",
+}
+
+# Corpora whose *released* text is native-script only (copyrighted English excluded),
+# so an English query has nothing lexical to match under a BM25-only system.
+_NATIVE_ONLY = ("ramayana", "mahabharata", "guru_granth_sahib")
+
+
+def to_markdown(rows: list[dict], reader: str, system: str | None = None,
+                k: int | None = None, retrieval: str | None = None) -> str:
+    """Render a run's cells as markdown. Header and commentary are derived from
+    the run itself -- never hardcoded to one system (that produced reports titled
+    "System A ... reader=top1" for every system we ever ran)."""
+    first = rows[0] if rows else {}
+    system = system or first.get("system") or "?"
+    model = first.get("model")
+    label = SYSTEM_NAMES.get(system, system)
+    reader_desc = f"reader=`{reader}`" + (f", model=`{model}`" if model else "")
+    cfg = ", ".join(x for x in (
+        f"k={k}" if k else None,
+        f"retrieval={retrieval}" if retrieval else None,
+    ) if x)
+
+    out = [f"# CANONCITE — System {system}: {label}", "",
+           f"{reader_desc}" + (f" · {cfg}" if cfg else ""), "",
            "| Corpus | Query lang | N | Attribution F1 (exact) | Misattribution Rate |",
            "|---|---|---:|---:|---:|"]
     for r in rows:
@@ -104,32 +136,43 @@ def to_markdown(rows: list[dict], reader: str) -> str:
         mar = "—" if r["mar"] is None else f"{r['mar']:.3f}"
         out.append(f"| {r['corpus']} | {r['qlang']} | {r['n']} | {f1} | {mar} |")
 
-    def _avg(pred):
-        xs = [r["f1_exact"] for r in rows if pred(r) and r["f1_exact"] is not None]
+    def _avg(field, pred):
+        xs = [r[field] for r in rows if pred(r) and r.get(field) is not None]
         return sum(xs) / len(xs) if xs else 0.0
-    en_avg = _avg(lambda r: r["qlang"] == "en")
-    xl_avg = _avg(lambda r: r["qlang"] != "en")
-    out += [
-        "", "## Summary", "",
-        f"- **English-query mean Attribution F1 (exact):** {en_avg:.3f}",
-        f"- **Cross-lingual (hi/native) mean Attribution F1 (exact):** {xl_avg:.3f}",
-        f"- **Cross-lingual attribution gap:** {en_avg - xl_avg:.3f} absolute "
-        f"({(1 - xl_avg / en_avg) * 100:.0f}% relative drop)" if en_avg else "",
-        "",
-        "## How to read this",
-        "",
-        "- This is a **lexical-only, no-LLM lower bound** (BM25 top-k, `reader=top1`): "
-        "it measures only *does naive keyword retrieval land the exact correct unit id?* "
-        "The full System-A number (LLM reader) and Systems B–E go on top.",
-        "- **Cross-lingual collapse is the headline:** a Hindi/native question against the "
-        "corpus text misattributes ~97–100% under lexical retrieval — this is precisely the "
-        "gap CANONCITE is built to measure, and it motivates dense multilingual retrieval "
-        "(BGE-M3) and the exact-ID attribution verifier (System E).",
-        "- **F1 = 0.000 for Rāmāyaṇa / Mahābhārata / Guru Granth Sahib (en):** by design the "
-        "*released* text for these corpora is native-script only (copyrighted English excluded), "
-        "so an English query has nothing lexical to match — these corpora *require* cross-lingual/"
-        "dense retrieval, not lexical. An honest artifact, not a bug.",
-    ]
+    en_avg = _avg("f1_exact", lambda r: r["qlang"] == "en")
+    xl_avg = _avg("f1_exact", lambda r: r["qlang"] != "en")
+    en_mar = _avg("mar", lambda r: r["qlang"] == "en")
+    xl_mar = _avg("mar", lambda r: r["qlang"] != "en")
+
+    out += ["", "## Summary", "",
+            f"- **Cells:** {len(rows)}",
+            f"- **English-query mean Attribution F1 (exact):** {en_avg:.3f}  ·  MAR {en_mar:.3f}",
+            f"- **Cross-lingual (hi/native) mean Attribution F1 (exact):** {xl_avg:.3f}"
+            f"  ·  MAR {xl_mar:.3f}"]
+    if en_avg:
+        out.append(f"- **Cross-lingual attribution gap:** {en_avg - xl_avg:.3f} absolute "
+                   f"({(1 - xl_avg / en_avg) * 100:.0f}% relative drop)")
+
+    notes = []
+    if reader == "top1":
+        notes.append(
+            "- This is a **lexical-only, no-LLM lower bound** (`reader=top1`): it measures only "
+            "*does retrieval rank the exact correct unit id first?* An LLM reader goes on top.")
+    if system == "A" and reader == "top1" and any(
+            r["corpus"] in _NATIVE_ONLY and r["qlang"] == "en" for r in rows):
+        notes.append(
+            "- **F1 = 0.000 for the native-script-only corpora under English queries** "
+            "(Rāmāyaṇa / Mahābhārata / Guru Granth Sahib): by design their *released* text is "
+            "native-script only (copyrighted English excluded), so an English query has nothing "
+            "lexical to match. These corpora *require* dense/cross-lingual retrieval. An honest "
+            "artifact, not a bug.")
+    n_rep = sum(r.get("n_repaired") or 0 for r in rows)
+    n_abs = sum(r.get("n_abstained") or 0 for r in rows)
+    if n_rep or n_abs:
+        notes.append(f"- **Verifier activity:** {n_rep} repairs, {n_abs} abstentions across "
+                     f"{len(rows)} cells.")
+    if notes:
+        out += ["", "## How to read this", ""] + notes
     return "\n".join(out) + "\n"
 
 
@@ -142,10 +185,10 @@ def main():
     ap.add_argument("--checkpoint", default=None,
                     help="JSONL path; append each (corpus,lang) cell as it finishes, resume on restart")
     ap.add_argument("--model", default=None, help="label the reader model in saved rows")
-    ap.add_argument("--system", default="A", choices=["A", "B", "C", "D", "E", "E2"],
+    ap.add_argument("--system", default="A", choices=["A", "B", "C", "D", "E", "E2", "CB"],
                     help="A=naive RAG, B=hybrid BM25+dense (RRF), C=hybrid+cross-encoder rerank, "
                          "D=Self-RAG+CRAG (SOTA baseline), E=verified RAG (binary verify+repair), "
-                         "E2=discriminative exact-ID select")
+                         "E2=discriminative exact-ID select, CB=closed-book control (no retrieval)")
     ap.add_argument("--retrieval", default="bm25", choices=["bm25", "hybrid", "rerank"],
                     help="retrieval backend for System E (hybrid=E-on-B, rerank=E-on-C)")
     # small corpora first -> paper-usable numbers land fast; huge ones (GGS/Mahabharata) last
@@ -155,7 +198,7 @@ def main():
     a = ap.parse_args()
     rows = sweep(a.reader, a.k, a.limit, a.corpora, checkpoint=a.checkpoint,
                  model=a.model, system=a.system, retrieval=a.retrieval)
-    md = to_markdown(rows, a.reader)
+    md = to_markdown(rows, a.reader, system=a.system, k=a.k, retrieval=a.retrieval)
     print(md)
     if a.out:
         path = a.out if os.path.isabs(a.out) else os.path.join(ROOT, a.out)

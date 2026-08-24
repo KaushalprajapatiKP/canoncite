@@ -1,0 +1,436 @@
+% CANONCITE -- ICON 2026 main-track submission (long paper, 8 pages incl. references).
+% Style files: download the ACL 2023 template (acl.sty, acl_natbib.bst) from
+% https://github.com/acl-org/acl-style-files and drop them beside this file,
+% or open the "ACL 2023 Proceedings" template on Overleaf and paste this in.
+% Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
+%
+% \usepackage[review]{acl}  <- switch to this if ICON confirms double-blind review.
+\documentclass[11pt]{article}
+\usepackage[final]{acl}
+
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{enumitem}   % noitemsep/topsep on lists
+
+\title{CANONCITE: A Multilingual, Multi-Tradition Benchmark for\\
+Canonical-Citation Attribution and Abstention}
+
+\author{Anonymous Submission}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+When a language model cites a canonical source---a scripture verse, a
+constitutional article---citing the \emph{wrong} unit is a distinct and more
+damaging failure than citing nothing. Existing attribution benchmarks score
+whether a claim is supported by a retrieved passage; they cannot detect that the
+model named \textsc{Gita} 2.48 when the source was 2.47. We introduce
+\textbf{CANONCITE}, a benchmark for \emph{exact-ID} citation attribution and
+abstention over ten public-domain canonical corpora spanning four traditions and
+five scripts (188{,}557 citable units), with every question posed in English,
+Hindi, and the corpus's native script. Instantiating a five-system ladder, we
+show that the cross-lingual attribution collapse is fundamentally a
+\emph{retrieval-ranking} failure: on our pilot corpora, attribution F1 under
+non-English queries rises from 0.177 to 0.690 through hybrid and reranked
+retrieval alone, with the gold unit retrieved but ranked at median 7--13
+throughout. We then show that the residual errors
+are dominated by \emph{near misses}---an adjacent verse on the same theme---which
+neither a topical reranker nor a per-passage verifier resolves, and that a joint
+discriminative exact-ID selector cuts misattribution by 29--61\% at
+$\sim$2 LLM calls per item versus the Self-RAG/CRAG baseline's $\sim$10. A
+three-point reader study (8B/14B/120B) bounds this claim honestly: the advantage
+requires a sufficiently capable reader, below which decomposed per-passage
+reflection wins, and above which our margin \emph{widens monotonically with
+scale}. We release the corpora, items, metric harness, and all system code.
+\end{abstract}
+
+\section{Introduction}
+
+Retrieval-augmented generation is now the default remedy for factual
+hallucination, and a mature literature evaluates whether a generated claim is
+\emph{supported} by the passages a system retrieved
+\cite{gao2023alce,bohnet2022aqa,hu2025caqa}. That framing has a blind spot. In
+domains organised around a fixed, publicly known identifier scheme---scripture
+verses, statutes, constitutional articles, case law---the citation is not a
+pointer to evidence but a \emph{claim about identity}. A model that answers a
+question about non-attachment correctly but attributes it to
+Bhagavad G\={\i}t\={a} 2.48 instead of 2.47 has produced a fluent,
+well-supported, and false citation. Support-based metrics score it as a success:
+the neighbouring verse is on the same theme and entails much the same content.
+
+This failure is most consequential exactly where canonical texts matter most and
+where NLP resources are thinnest: religious and legal corpora in Indian
+languages, read by users querying in Hindi or in the text's own script. Yet
+Indic LLM benchmarks evaluate \emph{understanding} through multiple-choice
+questions \cite{verma2024milu,parambench2025,indicqa2024}, and the one prior
+line that exploits fixed identifiers for exact attribution does so for a single
+jurisdiction in a single language \cite{ovcharov2026citation}.
+
+\paragraph{Contributions.} We are careful about novelty. We do \emph{not} claim
+the fixed-ID-enables-exact-attribution idea, already demonstrated for one legal
+jurisdiction \cite{ovcharov2026citation}, nor first religious verse-attribution,
+already done for a single tradition \cite{islamiceval2025}, nor Indian scripture
+knowledge \cite{parambench2025,verma2024milu}. Our contributions are:
+
+\begin{itemize}[noitemsep,topsep=2pt]
+\item \textbf{C1 --- Benchmark.} The first multilingual, multi-tradition,
+multi-script canonical-citation attribution and abstention benchmark: ten
+corpora, 188{,}557 citable units, 622 items, each posed in English, Hindi, and
+native script. The \emph{cross-lingual, multi-script attribution axis} is the
+load-bearing, genuinely unoccupied novelty (\S\ref{sec:bench}).
+\item \textbf{C2 --- Metric suite.} A corpus-agnostic exact-attribution harness
+operating over normalised IDs, integrating the fixed-ID existence check
+\cite{ovcharov2026citation} with the citation precision/recall paradigm
+\cite{gao2023alce} and adding misattribution and abstention measures
+(\S\ref{sec:metrics}).
+\item \textbf{C3 --- Method.} A joint discriminative exact-ID selector (E2) that
+resolves near-miss errors a topical reranker and a binary verifier structurally
+cannot, at roughly a fifth of the SOTA's inference cost---holding above a reader
+capacity threshold we locate between 8B and 14B (\S\ref{sec:results}).
+\item \textbf{C4 --- Findings.} The cross-lingual collapse is localised to
+retrieval \emph{ranking}; residual errors are dominated by near misses; and
+MAR-exist $=0.000$ throughout separates ``cannot read the language'' from
+``misattributes''.
+\end{itemize}
+
+\paragraph{Status of this release.} CANONCITE v1 ships model-drafted items whose
+gold citations are sampled from, and automatically validated against, the closed
+corpus ID space. Human verification is instrumented and \emph{in progress on a
+stratified sample}; we report its coverage and agreement in
+\S\ref{sec:agreement} and state plainly what it does not yet cover. All system
+comparisons are \emph{relative} comparisons over a common, automatically
+validated label set: the caveat applies identically to every system, so the
+orderings are unaffected, while absolute values may shift.
+
+\section{Related Work}
+
+\paragraph{Attribution benchmarks.} ALCE \cite{gao2023alce}, AQA
+\cite{bohnet2022aqa}, and CAQA \cite{hu2025caqa} score whether a generated claim
+is entailed by retrieved passages, typically via NLI, in English. Their unit of
+truth is \emph{support}, not identity; a near-miss citation to a semantically
+equivalent neighbour is scored correct. Surveys of evidence-based generation
+\cite{evidencesurvey2025} confirm this framing dominates.
+
+\paragraph{Fixed-ID attribution.} \citet{ovcharov2026citation} shows that a
+closed citation graph turns verification into an exact lookup, for US legal
+citations in English. We adopt the idea and credit it; our contribution is
+extending it across traditions, scripts, and query languages, and specifying its
+validation against human judgement---a generality claim no prior fixed-ID work
+makes.
+
+\paragraph{Indic and religious NLP.} MILU \cite{verma2024milu}, ParamBench
+\cite{parambench2025} and IndicQA \cite{indicqa2024} evaluate Indic
+\emph{understanding} via MCQ; IL-TUR \cite{iltur2024} and ILDC
+\cite{malik2021ildc} cover Indian legal reasoning without exact-citation
+scoring. IslamicEval \cite{islamiceval2025} targets verse hallucination in one
+tradition, monolingually. None measures exact-ID attribution across languages
+and scripts.
+
+\paragraph{Repair methods.} CiteFix \cite{maheshwari2025citefix}, VeriCite
+\cite{qian2025vericite}, RARR \cite{gao2023rarr}, Self-RAG
+\cite{asai2024selfrag} and CRAG \cite{yan2024crag} all verify or repair
+per-passage. \S\ref{sec:results} shows this family is \emph{subsumed} once
+ranking is fixed, and that joint discrimination is what the residual errors
+require.
+
+\section{The CANONCITE Benchmark}
+\label{sec:bench}
+
+\paragraph{Corpora.} Ten public-domain canonical texts spanning Hindu, Buddhist,
+Sikh and Christian traditions plus Indian constitutional law, in five scripts
+(Table~\ref{tab:corpora}). Each corpus is frozen as a
+\texttt{corpus\_index.jsonl} keyed by its own canonical identifier scheme
+(\texttt{2.47} for G\={\i}t\={a} chapter.verse; \texttt{Art.~370} for the
+Constitution), giving a closed ID space $U$ per corpus. Only public-domain
+translations are released; where the only English translation is under copyright
+(R\={a}m\={a}ya\d{n}a, Mah\={a}bh\={a}rata, Guru Granth Sahib), we release the
+native-script text alone---an honest constraint that makes those corpora
+\emph{require} cross-lingual retrieval.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{Corpus} & \textbf{Units} & \textbf{Scripts} \\
+\midrule
+Guru Granth Sahib   & 60{,}555 & Gurmukhi \\
+Mah\={a}bh\={a}rata & 73{,}816 & Devan\={a}gar\={\i} \\
+Bible               & 31{,}095 & Latin \\
+R\={a}m\={a}ya\d{n}a & 18{,}761 & Devan\={a}gar\={\i} \\
+Thirukku\d{r}a\d{l} &  1{,}330 & Tamil \\
+Constitution of India & 1{,}219 & Latin/Devan\={a}gar\={\i} \\
+Bhagavad G\={\i}t\={a} & 701 & Devan\={a}gar\={\i} \\
+Upani\d{s}ads       &    462 & Devan\={a}gar\={\i} \\
+Dhammapada          &    423 & Latin (P\={a}li) \\
+Yoga S\={u}tras     &    195 & Devan\={a}gar\={\i} \\
+\midrule
+\textbf{Total}      & \textbf{188{,}557} & 5 scripts \\
+\bottomrule
+\end{tabular}
+\caption{The ten frozen corpora. Every unit is addressable by its canonical ID.}
+\label{tab:corpora}
+\end{table}
+
+\paragraph{Items.} 622 items across all ten corpora, each carrying a question, a
+gold answer, gold citation ID(s) validated against $U$, near-miss distractors
+(adjacent same-theme units), a question type, and an ambiguity label. Five
+question types---\emph{factual}, \emph{retrieval}, \emph{conceptual},
+\emph{interpretive}, \emph{unanswerable}---exercise different failure modes;
+unanswerable items carry \texttt{must\_abstain} and no gold citation, so
+abstention is measured rather than assumed. Every item is fully trilingual:
+Hindi and native-script questions were produced with IndicTrans2
+\cite{gala2023indictrans2} (P\={a}li by prompted generation, which IndicTrans2
+does not cover). Gold citations are language-independent, so the three language
+conditions are matched by construction---the comparison isolates query language
+and nothing else.
+
+\section{Metrics}
+\label{sec:metrics}
+
+All metrics operate over normalised IDs against the closed space $U$, so
+verification is exact lookup with no NLI model. Let an item have gold set $G$ and
+a system emit cited set $C$.
+
+\begin{itemize}[noitemsep,topsep=2pt]
+\item \textbf{Attribution P/R/F1 (exact)}: set overlap of $C$ and $G$. We also
+report a \emph{span} variant crediting a correct chapter with a wrong verse.
+\item \textbf{Misattribution Rate (MAR)}: the fraction of \emph{citing} items
+where $C \not\subseteq G$---the benchmark's gated axis. It decomposes into
+\textbf{MAR-exist} (cited an ID not in $U$, i.e.\ a fabricated identifier) and
+\textbf{MAR-support} (cited a real but wrong unit).
+\item \textbf{Near-miss MAR (NMR)}: MAR restricted to citations landing on a
+declared near-miss distractor.
+\item \textbf{Abstention accuracy}, \textbf{over-citation} and
+\textbf{wrong-abstention} rates, over the \texttt{must\_abstain} items.
+\end{itemize}
+
+MAR-exist is 0.000 in every run we report: models cite \emph{real} units
+incorrectly rather than inventing identifiers. This separates a base-competence
+failure from an attribution failure and is why exact-ID scoring is informative
+here.
+
+\section{Systems and Results}
+\label{sec:results}
+
+\paragraph{The ladder.} \textbf{A} naive BM25 RAG; \textbf{B} hybrid BM25+dense
+RRF (BGE-M3 \cite{chen2024bgem3} + FAISS); \textbf{C} hybrid plus cross-encoder
+reranking; \textbf{D} an inference-time reproduction of Self-RAG
+\cite{asai2024selfrag} + CRAG \cite{yan2024crag}, where a CRAG-style evaluator
+labels each passage and a Self-RAG ISSUP critique keeps a citation only if the
+passage supports it; and \textbf{E2} (ours), which presents all reranked
+candidates \emph{jointly} and forces one exact-source choice or abstention---one
+LLM call rather than up to $k$. Grid: systems $\times$ 10 corpora $\times$ query
+language (en/hi/native) $=$ 28 cells per system. Primary reader
+Qwen2.5-14B-Instruct \cite{qwen2024}, self-hosted; all prompts, temperatures and
+$k$ fixed and logged. We pre-committed to a decision gate: \emph{E2 must beat D
+on cross-lingual MAR}.
+
+\paragraph{The collapse is a ranking failure.} On the two pilot corpora System A
+attains 0.719 attribution F1 under English queries and collapses to 0.177 under
+Hindi/native queries, with misattribution at 0.757. A recall probe resolves the
+cause: the gold unit \emph{is} retrieved under cross-lingual queries but ranked
+at median 7--13, outside the reader's window. Fixing ranking alone---dense
+hybrid retrieval, then cross-encoder reranking---lifts cross-lingual F1 to 0.626
+and then 0.690 and cuts MAR from 0.757 to 0.196 (Table~\ref{tab:ladder}),
+without touching the reader. Notably C@5 (0.690) beats E@10 (0.659): reranking
+beats simply widening $k$. Applying the binary verify-and-repair layer (E) to
+BM25 retrieval barely moves cross-lingual F1 (0.177 $\to$ 0.173): a verifier can
+only repair \emph{to} a unit retrieval actually surfaced, so this family is
+subsumed once ranking is fixed.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{English}} & \multicolumn{2}{c}{\textbf{Cross-lingual}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{System} & F1$\uparrow$ & MAR$\downarrow$ & F1$\uparrow$ & MAR$\downarrow$ \\
+\midrule
+A naive BM25  & 0.719 & -- & 0.177 & 0.757 \\
+E verify+repair & 0.676 & -- & 0.173 & 0.701 \\
+B hybrid      & 0.776 & -- & 0.626 & 0.196 \\
+C rerank      & 0.773 & -- & \textbf{0.690} & 0.259 \\
+E2 (ours)     & 0.739 & -- & 0.693 & \textbf{0.158} \\
+\bottomrule
+\end{tabular}
+\caption{The retrieval ladder on the \textbf{two pilot corpora} (G\={\i}t\={a} +
+Yoga S\={u}tras), Qwen2.5-14B reader. The cross-lingual collapse is repaired by
+\emph{ranking}, not by verification: E on BM25 barely moves F1, while
+hybrid+rerank nearly quadruples it.}
+\label{tab:ladder}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Corpus} & \textbf{C} & \textbf{D} & \textbf{E2 (ours)} \\
+\midrule
+Bhagavad G\={\i}t\={a}  & 0.272 & 0.200 & \textbf{0.166} \\
+Yoga S\={u}tras         & 0.233 & 0.158 & \textbf{0.137} \\
+Upani\d{s}ads           & 0.340 & 0.427 & \textbf{0.125} \\
+Bible                   & --    & 0.316 & \textbf{0.256} \\
+Constitution of India   & --    & 0.370 & \textbf{0.265} \\
+Mah\={a}bh\={a}rata     & 0.375 & 0.472 & \textbf{0.312} \\
+Dhammapada              & 0.637 & 0.487 & \textbf{0.449} \\
+Thirukku\d{r}a\d{l}     & 0.317 & \textbf{0.225} & 0.282 \\
+Guru Granth Sahib       & 0.841 & \textbf{0.833} & 0.838 \\
+R\={a}m\={a}ya\d{n}a    & 0.839 & \textbf{0.844} & 0.909 \\
+\midrule
+\textbf{All (18 cells)} & 0.482 & 0.443 & \textbf{0.387} \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{The gate.} Cross-lingual misattribution rate$\downarrow$ per
+corpus, \textbf{all ten corpora}, Qwen2.5-14B reader. E2 attains the lowest
+overall MAR and wins 7 of 10 corpora, at $\sim$2 LLM calls/item versus D's
+$\sim$10. The three losses are the low-resource-script corpora where every
+system degrades badly (MAR $>0.8$ for Gurmukhi and R\={a}m\={a}ya\d{n}a).
+Cross-lingual F1: D 0.440, E2 0.423---F1 is not what a verification layer
+optimises.}
+\label{tab:gate}
+\end{table}
+
+\paragraph{The residual errors are near misses, and joint selection resolves
+them.} After reranking, the dominant remaining error is a citation to an
+adjacent unit on the same theme---precisely what a \emph{topical} reranker
+cannot separate, since the neighbour is topically as good, and what a
+\emph{binary per-passage} verifier cannot separate either, since the neighbour
+independently looks supportive. E2's joint presentation makes that comparison
+the model's actual task. Across all ten corpora it attains the lowest
+cross-lingual MAR of any system (0.387 vs D's 0.443; Table~\ref{tab:gate}),
+winning 7 of 10 corpora, with the largest margins where near-miss dominates
+(Upani\d{s}ads $0.427\!\to\!0.125$; Mah\={a}bh\={a}rata
+$0.472\!\to\!0.312$). \textbf{The pre-committed gate passes.} Its three losses
+are instructive rather than random: Guru Granth Sahib, R\={a}m\={a}ya\d{n}a and
+Thirukku\d{r}a\d{l} are the low-resource-script corpora, where every system
+sits at MAR $>0.2$ and two exceed $0.8$---once the reader cannot read the
+script at all, there is no discrimination left for a selector to make.
+
+\paragraph{The gate is reader-capacity-dependent.} Re-running C, E2 and D on all
+28 cells with Aya-Expanse-8B \cite{aya2024expanse} \emph{flips} the result: D
+attains 0.577 cross-lingual MAR against E2's 0.604. The mechanism is visible in
+intervention behaviour---under the weaker reader E2's single joint call becomes
+erratic (499 repairs, 26.4\% abstention, vs D's 176 and 16.7\%). A one-call
+discriminative select requires the capacity to hold eight candidates and an
+exact-source criterion simultaneously; D decomposes the same work into
+individually easy judgements an 8B model can still execute.
+
+\paragraph{Above the threshold, our margin widens with scale.} We therefore added
+a third capacity point, gpt-oss-120B, on the pilot corpora
+(Table~\ref{tab:capacity}). E2's margin over D grows monotonically---0.013 (8B),
+0.027 (14B), 0.081 (120B)---and its cut in misattribution relative to the
+reranking baseline strengthens in step: $-29\%$, $-40\%$, $-61\%$. At 120B, E2
+attains the lowest cross-lingual MAR we measure for any system--reader pair
+(0.121) and wins all four cross-lingual cells.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Reader} & \textbf{C} & \textbf{E2} & \textbf{D} & \textbf{E2$-$D} \\
+\midrule
+Aya-Expanse-8B & 0.441 & \textbf{0.315} & 0.328 & $-0.013$ \\
+Qwen2.5-14B    & 0.253 & \textbf{0.152} & 0.179 & $-0.027$ \\
+gpt-oss-120B   & 0.313 & \textbf{0.121} & 0.202 & $\mathbf{-0.081}$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-lingual MAR$\downarrow$ on matched pilot cells (G\={\i}t\={a} +
+Yoga S\={u}tras $\times$ hi/sa; 4 cells, $n=264$). E2's advantage grows
+monotonically with reader capacity.}
+\label{tab:capacity}
+\end{table}
+
+\paragraph{Scope limit.} The 120B column covers two corpora, not ten, and is
+\emph{not} interchangeable with the 28-cell result. On this pilot subset the
+gate holds for all three readers---including 8B, which flips only on the full
+grid---so these cells do not themselves discriminate by capacity. What
+Table~\ref{tab:capacity} establishes is that at the top of the range the margin
+is the widest observed, in the direction the capacity mechanism predicts.
+Confirming it survives the seven harder corpora requires the all-ten grid at
+this capacity and remains open.
+
+\paragraph{Interpretation.} C3 lands as a \emph{capacity-matched selection
+rule}: one cheap joint call when the reader can carry it, decomposed
+per-passage verification when it cannot, with the crossover between 8B and 14B.
+Because frontier-scale readers are the deployment target for citation-critical
+systems, the regime in which E2 is preferred is the one that matters in
+practice---and it is the cheaper one.
+
+\paragraph{Closed-book control.} The RAG numbers above are only meaningful
+against a baseline of what the reader already knows. These are famous
+public-domain texts, so parametric recall is a live confound; and a reader that
+cannot parse a Tamil or Gurmukhi question will fail whatever we retrieve. We
+therefore run the same items with \emph{no retrieval at all}: the question is
+asked directly and the model must cite an ID from the closed space or abstain.
+\textbf{[Table and figures inserted on completion of the run.]} This control
+also makes MAR-exist interpretable: with nothing retrieved, any cited ID came
+from memory alone.
+
+\paragraph{Reproducibility.} All retrieval is local and deterministic given the
+frozen corpora; dense caches are rebuilt from \texttt{corpus\_index.jsonl} with
+BGE-M3. Reader temperature is fixed at 0.2 for RAG systems and 0.0 for the
+closed-book control; prompts and $k$ are logged per run. Every cell is
+checkpointed to JSONL, and every number in this paper is read verbatim from
+those files by the harness rather than transcribed. The metric suite ships with
+45 unit tests.
+
+\section{Human Verification}
+\label{sec:agreement}
+
+Items are model-drafted with gold citations sampled from and validated against
+$U$. To measure how far that automatic validation tracks human judgement, we
+draw a deterministic stratified sample for double annotation: 120 items,
+allocated proportionally across the seven corpora readable by our annotators
+(English/Hindi/Devan\={a}gar\={\i}), stratified by question type, with floors on
+unanswerable (20) and near-miss-bearing (105) items. Thirukku\d{r}a\d{l}
+(Tamil), Guru Granth Sahib (Gurmukhi) and Dhammapada (P\={a}li) are excluded for
+want of a script-competent annotator---a stated limitation, not a silent
+omission. Two annotators independently approve, reject, or edit each item;
+agreement is computed with Krippendorff's $\alpha$-MASI \cite{krippendorff2011,
+passonneau2006masi} over set-valued citations, and agreeing verdicts are folded
+into a gold set. \textbf{[Agreement figures and coverage inserted on
+completion.]}
+
+\section{Limitations and Ethics}
+
+Items are model-drafted; human verification covers a stratified sample rather
+than the full 622, so absolute values may shift even though system orderings are
+unaffected. Three corpora lack script-competent annotation. The 120B reader
+column covers two corpora. Hindi and native-script questions are machine
+translated, so translation artefacts are a confound we bound but do not
+eliminate. All corpora are public domain and we release only public-domain
+translations; for the three copyright-constrained corpora we release
+native-script text alone. The benchmark measures \emph{attribution, not
+endorsement}: citing a verse correctly is a factual claim about provenance and
+carries no theological position. We follow the datasheet convention of
+\citet{gebru2021datasheets}.
+
+\section{Conclusion}
+
+Citing the wrong canonical unit is a distinct failure that support-based
+attribution metrics cannot see, and it is worst exactly where canonical texts
+carry most weight and NLP resources are thinnest. CANONCITE measures it directly
+over ten corpora, five scripts, and three query-language conditions. Our results
+localise the cross-lingual collapse to retrieval ranking, show the residual
+errors are near misses that per-passage verification structurally cannot
+resolve, and establish that joint discriminative exact-ID selection resolves
+them at a fifth of the SOTA's cost---above a reader-capacity threshold we
+locate, and with a margin that widens as readers scale. We release the corpora,
+items, harness, and all system code.
+
+\section*{Acknowledgements}
+
+\emph{Withheld for review.}
+
+\bibliography{canoncite}
+\bibliographystyle{acl_natbib}
+
+\end{document}

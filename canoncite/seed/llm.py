@@ -70,13 +70,39 @@ def chat_json(prompt: str, system: str | None = None, temperature: float = 0.7) 
     """Return a parsed JSON object from the model, or None."""
     cfg = get_config()
     if cfg["provider"] == "openai":
-        from openai import OpenAI
-        client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"])
+        import time
+        from openai import OpenAI, APIConnectionError, APITimeoutError, RateLimitError
+        client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], timeout=120)
         messages = ([{"role": "system", "content": system}] if system else []) + \
                    [{"role": "user", "content": prompt}]
-        resp = client.chat.completions.create(
-            model=cfg["model"], messages=messages, temperature=temperature)
-        return _parse_json(resp.choices[0].message.content or "")
+        transient_failures = 0
+        backoff = 5.0
+        while True:
+            try:
+                resp = client.chat.completions.create(
+                    model=cfg["model"], messages=messages, temperature=temperature)
+                return _parse_json(resp.choices[0].message.content or "")
+            except RateLimitError as e:
+                # Free-tier pacing (RPM) or daily quota (RPD/TPD): wait it out, never give up —
+                # a checkpointed sweep should stall through a quota window, not record a failure.
+                wait = backoff
+                retry_after = getattr(getattr(e, "response", None), "headers", {}) or {}
+                ra = retry_after.get("retry-after")
+                if ra:
+                    try:
+                        wait = float(ra) + 1.0
+                    except ValueError:
+                        pass
+                wait = min(wait, 900.0)
+                print(f"[llm] 429 rate-limited; sleeping {wait:.0f}s", flush=True)
+                time.sleep(wait)
+                backoff = min(backoff * 2, 900.0)
+            except (APIConnectionError, APITimeoutError) as e:
+                transient_failures += 1
+                if transient_failures > 5:
+                    print(f"[llm] giving up after {transient_failures} transient errors: {e}", flush=True)
+                    return None
+                time.sleep(10 * transient_failures)
     # default: ollama
     return ollama_client.chat_json(prompt, model=cfg["model"], system=system, temperature=temperature)
 

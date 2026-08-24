@@ -2,11 +2,18 @@
 
 Endpoints:
   GET  /                                  -> index.html
-  GET  /api/corpora                       -> [{corpus, n_items}]
+  GET  /api/corpora                       -> [{corpus, n_items, n_done}]
   GET  /api/items?corpus=X&reviewer=Y     -> items enriched with source text + this
                                              reviewer's saved verdicts
   POST /api/verdict  {reviewer,corpus,item_id,status,edits,notes}
                                           -> upsert data/reviews/<corpus>/<reviewer>.jsonl
+
+Verdicts are read straight back by canoncite.agreement (its `load_verdicts` falls
+back to these per-reviewer files), so the whole verify -> agreement -> gold chain
+runs locally with no hosted backend.
+
+Pass a sample manifest (see canoncite/review/build_sample.py) to restrict review
+to the stratified human-verification sample instead of all 622 items.
 """
 from __future__ import annotations
 
@@ -20,8 +27,16 @@ ITEMS_DIR = os.path.join(ROOT, "canoncite", "data", "items")
 CORPORA_DIR = os.path.join(ROOT, "canoncite", "data", "corpora")
 REVIEWS_DIR = os.path.join(ROOT, "canoncite", "data", "reviews")
 HTML = os.path.join(os.path.dirname(__file__), "index.html")
+DEFAULT_SAMPLE = os.path.join(ITEMS_DIR, "_review_sample_v1.json")
 
 _corpus_index_cache: dict[str, dict] = {}
+# {corpus: {item_id}} when reviewing a sample; None means "every item".
+SAMPLE: dict[str, set] | None = None
+
+
+def load_sample(path: str) -> dict[str, set]:
+    with open(path, encoding="utf-8") as fh:
+        return {c: set(ids) for c, ids in json.load(fh)["by_corpus"].items()}
 
 
 def _load_jsonl(path):
@@ -46,12 +61,23 @@ def source_text(corpus: str, cid: str) -> dict:
             "heading": r.get("heading")}
 
 
-def list_corpora():
+def list_corpora(reviewer: str = "anon"):
+    """Corpora in scope, with this reviewer's progress so the UI can show N done/M."""
     out = []
     for c in sorted(os.listdir(ITEMS_DIR)):
         p = os.path.join(ITEMS_DIR, c, "seed_candidates.jsonl")
-        if os.path.isfile(p):
-            out.append({"corpus": c, "n_items": sum(1 for _ in open(p, encoding="utf-8"))})
+        if not os.path.isfile(p):
+            continue
+        if SAMPLE is not None:
+            keep = SAMPLE.get(c)
+            if not keep:
+                continue  # corpus excluded from the sample
+            n_items = len(keep)
+            done = sum(1 for i in load_verdicts(c, reviewer) if i in keep)
+        else:
+            n_items = sum(1 for _ in open(p, encoding="utf-8"))
+            done = len(load_verdicts(c, reviewer))
+        out.append({"corpus": c, "n_items": n_items, "n_done": done})
     return out
 
 
@@ -80,6 +106,9 @@ def save_verdict(v: dict):
 
 def items_for_review(corpus: str, reviewer: str) -> list[dict]:
     items = _load_jsonl(os.path.join(ITEMS_DIR, corpus, "seed_candidates.jsonl"))
+    if SAMPLE is not None:
+        keep = SAMPLE.get(corpus, set())
+        items = [it for it in items if it["id"] in keep]
     verdicts = load_verdicts(corpus, reviewer)
     for it in items:
         it["_gold_src"] = [source_text(corpus, c) for c in it.get("gold_citations", [])]
@@ -107,7 +136,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/":
                 self._send(200, open(HTML, "rb").read(), "text/html; charset=utf-8")
             elif u.path == "/api/corpora":
-                self._send(200, list_corpora())
+                self._send(200, list_corpora(q.get("reviewer", ["anon"])[0]))
             elif u.path == "/api/items":
                 corpus = q.get("corpus", [""])[0]
                 reviewer = q.get("reviewer", ["anon"])[0]
@@ -135,12 +164,37 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"error": str(e)})
 
 
-def serve(port=8080):
+def serve(port=8080, sample: str | None = None):
+    """Serve the review UI. `sample` is a path to a build_sample.py manifest, or
+    "all" / None to review every item."""
+    global SAMPLE
+    if sample and sample != "all":
+        SAMPLE = load_sample(sample)
     os.makedirs(REVIEWS_DIR, exist_ok=True)
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"CANONCITE review app → http://localhost:{port}  (Ctrl-C to stop)")
+    if SAMPLE is not None:
+        n = sum(len(v) for v in SAMPLE.values())
+        print(f"  scope: stratified sample, {n} items across {len(SAMPLE)} corpora")
+    else:
+        print("  scope: ALL items")
     print(f"  items: {ITEMS_DIR}\n  verdicts: {REVIEWS_DIR}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         srv.shutdown()
+
+
+def main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="CANONCITE review app")
+    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--sample", default=DEFAULT_SAMPLE,
+                    help="sample manifest path, or 'all' to review every item")
+    a = ap.parse_args(argv)
+    serve(a.port, a.sample)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

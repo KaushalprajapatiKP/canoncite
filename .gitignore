@@ -186,3 +186,15 @@ canoncite/seed/.llm.env
 
 # review app: local Supabase config (real one; example is committed)
 canoncite/review/webapp/config.js
+
+# Mac-local retrieval stack (reader #3 runs) — regenerable
+.venv-ret/
+canoncite/data/corpora/*/dense_*.npz
+# ALL provider env files carry API keys -- ignore by pattern, not by name,
+# so a new provider file can never be committed by accident again.
+canoncite/seed/.llm.env
+canoncite/seed/.llm.env.*
+!canoncite/seed/.llm.env.example
+
+# local review verdicts (per-reviewer working data; aggregated gold.jsonl is tracked)
+canoncite/data/reviews/
