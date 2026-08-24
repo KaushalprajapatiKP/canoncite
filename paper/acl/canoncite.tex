@@ -41,15 +41,15 @@ show that the cross-lingual attribution collapse is fundamentally a
 \emph{retrieval-ranking} failure: on our pilot corpora, attribution F1 under
 non-English queries rises from 0.177 to 0.690 through hybrid and reranked
 retrieval alone, with the gold unit retrieved but ranked at median 7--13
-throughout. We then show that the residual errors
-are dominated by \emph{near misses}---an adjacent verse on the same theme---which
-neither a topical reranker nor a per-passage verifier resolves, and that a joint
-discriminative exact-ID selector cuts misattribution by 29--61\% at
-$\sim$2 LLM calls per item versus the Self-RAG/CRAG baseline's $\sim$10. A
-three-point reader study (8B/14B/120B) bounds this claim honestly: the advantage
-requires a sufficiently capable reader, below which decomposed per-passage
-reflection wins, and above which our margin \emph{widens monotonically with
-scale}. We release the corpora, items, metric harness, and all system code.
+throughout. We then show that a joint discriminative
+exact-ID selector cuts misattribution by 29--61\% at $\sim$2 LLM calls per item
+versus the Self-RAG/CRAG baseline's $\sim$10---and, contrary to our own
+hypothesis, that it does so by eliminating \emph{implausible} citations rather
+than by resolving near misses, which rise as a share of the residual error. A three-point reader study
+(8B/14B/120B) shows the advantage grows with reader capacity, though an
+identical-config replication puts the low-end margins inside run-to-run noise,
+so we report the capacity effect as a consistent trend rather than an
+established ordering. We release the corpora, items, metric harness, and all system code.
 \end{abstract}
 
 \section{Introduction}
@@ -92,20 +92,24 @@ operating over normalised IDs, integrating the fixed-ID existence check
 \cite{gao2023alce} and adding misattribution and abstention measures
 (\S\ref{sec:metrics}).
 \item \textbf{C3 --- Method.} A joint discriminative exact-ID selector (E2) that
-resolves near-miss errors a topical reranker and a binary verifier structurally
-cannot, at roughly a fifth of the SOTA's inference cost---holding above a reader
-capacity threshold we locate between 8B and 14B (\S\ref{sec:results}).
+attains the lowest misattribution rate of any system at roughly a fifth of the
+SOTA's inference cost, by eliminating \emph{implausible} misattributions and
+concentrating the residual error on genuine near neighbours. The advantage is
+robust to run-to-run noise on the full ten-corpus grid; its apparent
+capacity-dependence is a trend our replication cannot yet separate from noise
+at the low end (\S\ref{sec:results}).
 \item \textbf{C4 --- Findings.} The cross-lingual collapse is localised to
-retrieval \emph{ranking}; residual errors are dominated by near misses; and
-MAR-exist $=0.000$ throughout separates ``cannot read the language'' from
-``misattributes''.
+retrieval \emph{ranking} (the gold unit is retrieved but ranked at median 7--13);
+near misses grow from 8\% to 13\% of residual misattributions as systems improve,
+so adjacency discrimination is what remains unsolved; and MAR-exist $=0.000$
+throughout separates ``cannot read the language'' from ``misattributes''.
 \end{itemize}
 
 \paragraph{Status of this release.} CANONCITE v1 ships model-drafted items whose
 gold citations are sampled from, and automatically validated against, the closed
-corpus ID space. Human verification is instrumented and \emph{in progress on a
-stratified sample}; we report its coverage and agreement in
-\S\ref{sec:agreement} and state plainly what it does not yet cover. All system
+corpus ID space. Human verification covers a stratified sample of 120 items,
+\textbf{double-annotated}, with Krippendorff's $\alpha$-MASI $=0.991$ on
+citation sets and 118 items promoted to verified gold (\S\ref{sec:agreement}). All system
 comparisons are \emph{relative} comparisons over a common, automatically
 validated label set: the caveat applies identically to every system, so the
 orderings are unaffected, while absolute values may shift.
@@ -192,6 +196,28 @@ does not cover). Gold citations are language-independent, so the three language
 conditions are matched by construction---the comparison isolates query language
 and nothing else.
 
+\paragraph{Construction protocol.} Corpora are frozen first: a version-hashed
+\texttt{corpus\_index.jsonl} per corpus fixes $U$, and nothing downstream may
+cite an ID outside it. Items are then drafted by a pinned LLM \emph{conditioned
+on retrieved real units}, over-generating $\sim$1.5$\times$ to allow rejection;
+unanswerable items are seeded from out-of-corpus topics and cross-corpus swaps.
+Every drafted gold citation is automatically validated against $U$, so a
+fabricated identifier cannot enter the benchmark by construction. Model output
+is a \emph{draft}, never ground truth: human annotators work with the corpus
+open, seeing each candidate ID's actual text, and confirm or correct the gold
+set, answerability, and distractors (\S\ref{sec:agreement} reports coverage).
+
+\paragraph{Tiered annotation.} Double-annotating verse-level ground truth across
+four traditions and five scripts exceeds a small team's budget, and annotator
+scarcity---not compute---is this benchmark's binding constraint. We therefore
+declare two tiers rather than hide a quality gradient. \textbf{Tier A} (Bhagavad
+G\={\i}t\={a}, Bible, Constitution, Thirukku\d{r}a\d{l}) targets full double
+annotation with per-citation content-support labels, and carries the C2
+generality claim. \textbf{Tier B} (the remaining six) covers factual, retrieval
+and unanswerable items only---all auto-checkable with NLI-free metrics---
+extending the language, script and tradition axes at low annotation cost. Each
+corpus's tier is recorded in the datasheet.
+
 \section{Metrics}
 \label{sec:metrics}
 
@@ -240,11 +266,41 @@ cause: the gold unit \emph{is} retrieved under cross-lingual queries but ranked
 at median 7--13, outside the reader's window. Fixing ranking alone---dense
 hybrid retrieval, then cross-encoder reranking---lifts cross-lingual F1 to 0.626
 and then 0.690 and cuts MAR from 0.757 to 0.196 (Table~\ref{tab:ladder}),
-without touching the reader. Notably C@5 (0.690) beats E@10 (0.659): reranking
-beats simply widening $k$. Applying the binary verify-and-repair layer (E) to
+without touching the reader. Applying the binary verify-and-repair layer (E) to
 BM25 retrieval barely moves cross-lingual F1 (0.177 $\to$ 0.173): a verifier can
 only repair \emph{to} a unit retrieval actually surfaced, so this family is
 subsumed once ranking is fixed.
+
+Table~\ref{tab:recall} isolates the mechanism. Dense hybrid retrieval
+\emph{finds} the gold unit almost always (R@50 $=$ 0.93--0.99) in every language,
+but under cross-lingual queries ranks it at median 7--13, below the reader's
+top-5 window; English queries place it at rank 1. The collapse is therefore
+neither a coverage failure nor a reasoning failure. Two levers follow---widen $k$,
+or rerank---and widening plateaus then hurts: a $k$-sweep of System E improves
+through $k\!\approx\!10$ but \emph{regresses} at $k\!=\!20$ (G\={\i}t\={a} Hindi
+$0.683\!\to\!0.670$) as the reader drowns in noisy passages. Reranking is the
+right lever, and C@5 (0.690) beats E@10 (0.659) accordingly.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Corpus $\times$ lang} & \textbf{R@5} & \textbf{R@20} & \textbf{R@50} & \textbf{med.\ rank} \\
+\midrule
+G\={\i}t\={a} $\cdot$ en   & 0.800 & 0.943 & 0.986 & \textbf{1} \\
+G\={\i}t\={a} $\cdot$ hi   & \textbf{0.357} & 0.857 & 0.986 & \textbf{7} \\
+G\={\i}t\={a} $\cdot$ sa   & 0.557 & 0.843 & 0.943 & 5 \\
+Yoga S. $\cdot$ en         & 0.932 & 0.955 & 0.977 & \textbf{1} \\
+Yoga S. $\cdot$ hi         & \textbf{0.227} & 0.773 & 0.932 & \textbf{12} \\
+Yoga S. $\cdot$ sa         & \textbf{0.227} & 0.727 & 0.955 & \textbf{13} \\
+\bottomrule
+\end{tabular}
+\caption{Recall@$k$ of the gold unit under hybrid BM25+BGE-M3 retrieval,
+answerable items. Retrieval \emph{finds} the gold unit cross-lingually
+(R@50 $\approx$ 0.93--0.99) but \emph{ranks} it far below the top-5 window.
+The collapse is a ranking failure.}
+\label{tab:recall}
+\end{table}
 
 \begin{table}[t]
 \centering\small
@@ -298,21 +354,69 @@ optimises.}
 \label{tab:gate}
 \end{table}
 
-\paragraph{The residual errors are near misses, and joint selection resolves
-them.} After reranking, the dominant remaining error is a citation to an
-adjacent unit on the same theme---precisely what a \emph{topical} reranker
-cannot separate, since the neighbour is topically as good, and what a
-\emph{binary per-passage} verifier cannot separate either, since the neighbour
-independently looks supportive. E2's joint presentation makes that comparison
-the model's actual task. Across all ten corpora it attains the lowest
-cross-lingual MAR of any system (0.387 vs D's 0.443; Table~\ref{tab:gate}),
-winning 7 of 10 corpora, with the largest margins where near-miss dominates
-(Upani\d{s}ads $0.427\!\to\!0.125$; Mah\={a}bh\={a}rata
-$0.472\!\to\!0.312$). \textbf{The pre-committed gate passes.} Its three losses
-are instructive rather than random: Guru Granth Sahib, R\={a}m\={a}ya\d{n}a and
-Thirukku\d{r}a\d{l} are the low-resource-script corpora, where every system
-sits at MAR $>0.2$ and two exceed $0.8$---once the reader cannot read the
-script at all, there is no discrimination left for a selector to make.
+\paragraph{Joint selection removes implausible citations, not near misses.}
+E2 presents the reranked candidates together and forces one exact-source choice.
+Across all ten corpora it attains the lowest cross-lingual MAR of any system
+(0.387 vs D's 0.443; Table~\ref{tab:gate}), winning 7 of 10 corpora, with the
+largest margins on Upani\d{s}ads ($0.427\!\to\!0.125$) and Mah\={a}bh\={a}rata
+($0.472\!\to\!0.312$). \textbf{The pre-committed gate passes.}
+
+The \emph{mechanism}, however, is not the one we hypothesised, and the near-miss
+rate says so. NMR---the share of wrong citations landing on a declared near-miss
+distractor---\emph{rises} as misattribution falls: cross-lingually, C sits at MAR
+0.482 with NMR 0.082, E2 at MAR 0.387 with NMR 0.129 (on the pilot corpora,
+0.259/0.121 versus 0.158/0.268). E2 therefore does \emph{not} preferentially
+resolve near misses; it preferentially removes the \emph{implausible}
+misattributions---citations to units that are not even credible
+neighbours---leaving genuine near-neighbour discrimination as a roughly constant,
+and proportionally much larger, residual. We report this because it revises our
+own hypothesis: joint presentation buys candidate-set discipline, not fine-grained
+adjacency discrimination.
+
+This also explains the capacity dependence in \S\ref{sec:results}: narrowing to
+the right neighbourhood is a judgement an 8B reader can partly make, but choosing
+\emph{within} that neighbourhood is what scales with capacity. Consistent with
+this, E2 has the best abstention accuracy of any system (0.955 cross-lingual,
+0.986 English) and the lowest over-citation rate (0.045), but the highest
+wrong-abstention rate (0.470)---it is the most willing to decline, which is the
+correct bias for citation-critical use and a cost we state rather than hide.
+
+\paragraph{Script, not ``low-resource'', is the discriminating variable.}
+Breaking the grid down by query script (Table~\ref{tab:script}) refines the
+picture in a way the aggregate hides. Devanagari queries---Hindi and
+Sanskrit---behave like English once ranking is fixed (E2 F1 0.477 and 0.392
+against English's 0.472). Tamil, often grouped as low-resource, is in fact the
+\emph{best} cross-lingual condition we measure under reranking (C F1 0.625).
+What collapses is Gurmukhi and P\={a}li, at MAR 0.83 and 0.80 respectively,
+where no system recovers. The common factor is not script frequency but our own
+release constraint: Guru Granth Sahib is the largest ID space in the benchmark
+(60{,}555 units) \emph{and} native-script-only for copyright reasons, and the
+P\={a}li questions are the one language IndicTrans2 does not cover, so they were
+produced by prompted generation. These are single-cell conditions ($n=1$ corpus
+each), so we report them as a located weakness rather than a script-level claim,
+and they account for E2's three per-corpus losses in Table~\ref{tab:gate}. Once
+a reader cannot read the script at all, there is no discrimination left for any
+selector to make.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Query script} & \textbf{cells} & \textbf{A F1} & \textbf{E2 F1} & \textbf{E2 MAR} \\
+\midrule
+Latin (English)        & 10 & 0.422 & 0.472 & 0.311 \\
+Devan\={a}gar\={\i} (Hindi)  & 10 & 0.166 & \textbf{0.477} & 0.336 \\
+Devan\={a}gar\={\i} (Sanskrit) & 5 & 0.194 & 0.392 & 0.317 \\
+Tamil                  & 1  & 0.100 & 0.579 & 0.383 \\
+Gurmukhi               & 1  & 0.222 & 0.167 & \textbf{0.833} \\
+Latin (P\={a}li)       & 1  & 0.167 & 0.142 & \textbf{0.800} \\
+\bottomrule
+\end{tabular}
+\caption{By query script, all ten corpora, Qwen2.5-14B. Devanagari recovers to
+English-level attribution once ranking is fixed; Gurmukhi and P\={a}li do not.
+Tamil, despite being low-resource, is among the strongest conditions.}
+\label{tab:script}
+\end{table}
 
 \paragraph{The gate is reader-capacity-dependent.} Re-running C, E2 and D on all
 28 cells with Aya-Expanse-8B \cite{aya2024expanse} \emph{flips} the result: D
@@ -348,14 +452,33 @@ monotonically with reader capacity.}
 \label{tab:capacity}
 \end{table}
 
+\paragraph{Run-to-run variance bounds what these margins can support.} An
+identical-configuration replication of our closed-book control (28 cells, same
+model, same host, temperature 0.0) is not reproducible to the digit: 21 of 28
+cells were bit-identical, but the remainder varied, giving a per-cell
+$\sigma \!=\! 0.077$ on MAR. Propagated to the cell-\emph{means} we report, the
+95\% band is $\pm0.035$ over 18 cross-lingual cells and $\pm0.075$ over 4. This
+is a \emph{lower} bound on the noise in the retrieval systems, which issue 2--10
+LLM calls per item against the control's one.
+
+Against that band, the all-ten gate result is safe---E2's 0.056 MAR advantage
+over D exceeds $\pm0.035$---but the capacity comparisons are not. The 8B
+reversal (0.027 over 18 cells) and the 8B and 14B pilot margins (0.013 and
+0.027 over 4 cells) all fall \emph{inside} their bands; only the 120B margin
+(0.081) clears one, and narrowly. We therefore state the capacity finding as a
+\textbf{consistent trend that our current replication cannot separate from
+noise at the low end}, not as an established ordering: the direction is stable
+across three readers and the top-end margin is real, but ``the gate flips below
+14B'' is a hypothesis this evidence motivates rather than demonstrates.
+Multi-seed replication of E2 and D at each capacity is the obvious next
+experiment, and we flag it rather than let single-run margins carry a claim they
+cannot bear.
+
 \paragraph{Scope limit.} The 120B column covers two corpora, not ten, and is
 \emph{not} interchangeable with the 28-cell result. On this pilot subset the
-gate holds for all three readers---including 8B, which flips only on the full
-grid---so these cells do not themselves discriminate by capacity. What
-Table~\ref{tab:capacity} establishes is that at the top of the range the margin
-is the widest observed, in the direction the capacity mechanism predicts.
-Confirming it survives the seven harder corpora requires the all-ten grid at
-this capacity and remains open.
+ordering favours E2 for all three readers, so these cells do not themselves
+discriminate by capacity. Confirming the top-end margin survives the seven
+harder corpora requires the all-ten grid at this capacity and remains open.
 
 \paragraph{Interpretation.} C3 lands as a \emph{capacity-matched selection
 rule}: one cheap joint call when the reader can carry it, decomposed
@@ -364,15 +487,54 @@ Because frontier-scale readers are the deployment target for citation-critical
 systems, the regime in which E2 is preferred is the one that matters in
 practice---and it is the cheaper one.
 
-\paragraph{Closed-book control.} The RAG numbers above are only meaningful
-against a baseline of what the reader already knows. These are famous
-public-domain texts, so parametric recall is a live confound; and a reader that
-cannot parse a Tamil or Gurmukhi question will fail whatever we retrieve. We
-therefore run the same items with \emph{no retrieval at all}: the question is
-asked directly and the model must cite an ID from the closed space or abstain.
-\textbf{[Table and figures inserted on completion of the run.]} This control
-also makes MAR-exist interpretable: with nothing retrieved, any cited ID came
-from memory alone.
+\paragraph{Closed-book control: retrieval's contribution is real but wildly
+uneven.} The numbers above are only meaningful against a baseline of what the
+reader already knows. These are famous public-domain texts, so parametric recall
+is a live confound. We therefore run all 28 cells with \emph{no retrieval at
+all}---the question is asked directly and the model must cite an ID from the
+closed space or abstain---using the same Qwen2.5-14B reader, so the control is
+matched to the grid it qualifies (Table~\ref{tab:closedbook}).
+
+Closed book, the reader attains 0.202 English / 0.150 cross-lingual attribution
+F1 and misattributes on roughly \emph{four citations in five} (MAR 0.807 /
+0.841). Retrieval therefore contributes $+0.222$ and $+0.254$ F1 respectively,
+and more than halves misattribution---the system results are not an artefact of
+memorisation in aggregate.
+
+Per corpus, however, the picture splits sharply. The Bhagavad G\={\i}t\={a} is
+substantially memorised (closed-book English F1 0.497, against 0.310 for the
+next-highest corpus), so G\={\i}t\={a} numbers should be read as partly
+parametric---a caveat that matters because the G\={\i}t\={a} is one of our two
+pilot corpora. At the other extreme, four corpora---Bible, Guru Granth Sahib,
+R\={a}m\={a}ya\d{n}a and the Constitution---show retrieval adding essentially
+\emph{nothing} over memory (e.g.\ Bible $0.125 \!\to\! 0.125$; Constitution
+$0.100 \!\to\! 0.107$), because retrieval itself is failing on them. Where
+retrieval works it is transformative: Thirukku\d{r}a\d{l} $0.086 \!\to\! 0.775$,
+Dhammapada $0.182 \!\to\! 0.815$, Yoga S\={u}tras $0.310 \!\to\! 0.809$.
+
+The control also makes MAR-exist interpretable: with nothing retrieved, any
+cited ID came from memory alone---and MAR-exist remains 0.000, so even
+unaided the reader recalls \emph{real} identifiers and assigns them wrongly,
+rather than inventing them.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \textbf{CB} & \textbf{A} & \textbf{C} & \textbf{E2} \\
+\midrule
+English F1$\uparrow$        & 0.202 & 0.422 & 0.424 & \textbf{0.472} \\
+English MAR$\downarrow$     & 0.807 & 0.479 & 0.435 & \textbf{0.311} \\
+Cross-ling.\ F1$\uparrow$   & 0.150 & 0.173 & 0.404 & \textbf{0.423} \\
+Cross-ling.\ MAR$\downarrow$& 0.841 & 0.470 & 0.482 & \textbf{0.387} \\
+\bottomrule
+\end{tabular}
+\caption{Closed-book control (CB, no retrieval) against the ladder, all ten
+corpora, Qwen2.5-14B, 28 cells each. Without retrieval the reader misattributes
+four citations in five. CB is the mean of two identical-configuration runs
+(\S\ref{sec:results}).}
+\label{tab:closedbook}
+\end{table}
 
 \paragraph{Reproducibility.} All retrieval is local and deterministic given the
 frozen corpora; dense caches are rebuilt from \texttt{corpus\_index.jsonl} with
@@ -393,17 +555,113 @@ allocated proportionally across the seven corpora readable by our annotators
 unanswerable (20) and near-miss-bearing (105) items. Thirukku\d{r}a\d{l}
 (Tamil), Guru Granth Sahib (Gurmukhi) and Dhammapada (P\={a}li) are excluded for
 want of a script-competent annotator---a stated limitation, not a silent
-omission. Two annotators independently approve, reject, or edit each item;
-agreement is computed with Krippendorff's $\alpha$-MASI \cite{krippendorff2011,
-passonneau2006masi} over set-valued citations, and agreeing verdicts are folded
-into a gold set. \textbf{[Agreement figures and coverage inserted on
-completion.]}
+omission. Annotators approve, reject, or edit each item; agreeing verdicts are folded into
+a gold set, with agreement computed as Krippendorff's $\alpha$-MASI
+\cite{krippendorff2011,passonneau2006masi} over set-valued citations.
+
+\paragraph{Coverage and agreement.} All 120 sampled items are
+\textbf{double-annotated}. Two annotators independently agreed on the gold
+citation set for \textbf{119 of 120 items (99.2\%)} and on the approve/edit/
+reject verdict for 118 (98.3\%), yielding Krippendorff's
+$\alpha$-MASI $= \mathbf{0.991}$ over set-valued citations
+(Table~\ref{tab:agreement}). Adjudication promotes \textbf{118 items to
+\texttt{verified}} gold; 2 are flagged \texttt{needs\_adjudication}.
+
+Both disagreements are informative rather than noise. On
+\texttt{gita-seed-0004} one annotator approved the drafted G\={\i}t\={a} 4.8
+while the other corrected it to 4.7---an \emph{adjacent-verse near miss},
+exactly the error class this benchmark exists to measure, and the single hardest
+judgement in the sample. On \texttt{ys-seed-0047} the annotators agreed on the
+citation label (both assert the empty set) but split on whether to reject the
+item outright. That the one genuine citation-level disagreement between two
+humans is a near miss is itself evidence that the phenomenon we measure is real
+and hard, not an artefact of automatic scoring.
+
+\paragraph{Reporting $\kappa$ honestly.} Cohen's $\kappa$ on the verdict label
+is $0.000$ despite 98.3\% observed agreement. This is the well-known
+high-agreement/low-$\kappa$ paradox: 238 of 240 verdicts fall in a single
+category (\emph{approve}), so expected chance agreement nearly equals observed
+agreement and $\kappa$ collapses regardless of annotator reliability. We report
+it rather than suppress it, alongside the prevalence-adjusted
+PABAK $= 0.967$ and raw percent agreement, which are the interpretable
+statistics under this marginal distribution. $\kappa$ is $1.000$ for both
+question type and ambiguity, where the label distribution is not degenerate.
+
+\paragraph{An automatic checker is a useful critic, not a cheap annotator.}
+Because a second human is the scarce resource in this benchmark, we also ran an
+automatic second pass over the same 120 items---same evidence, same
+approve/edit/reject schema---and measured \emph{human--model} agreement. This is
+not inter-annotator agreement and we do not report it as such; machine verdicts
+are written to a separate store and are explicitly excluded from adjudication,
+so no item can be promoted to gold by a model.
+
+The result is instructive in the opposite direction from the obvious one. A
+self-hosted Qwen2.5-14B agrees with our annotators almost perfectly (98.3\% and
+99.2\% exact gold-set match, $\alpha$-MASI 0.983/0.991), which mostly means it
+is as willing to approve as they were. A larger gpt-oss-120B checker agrees
+\emph{less} (91.8\%/93.9\%, $\alpha$ 0.929/0.951)---and its disagreements are
+substantive editorial objections that both humans missed. On one Bible item it
+refused a gold set of three beatitudes because the question asked for all
+qualifying groups; on another it argued Exodus 20:7 does not belong beside
+20:3--4. Both items had been approved by both annotators.
+
+Agreement with humans is therefore the wrong objective for an automatic pass.
+The stronger model is more valuable precisely where it dissents, as a
+\emph{screening} tool that surfaces construction defects for human
+adjudication---a role that scales to the 502 items we have not yet verified,
+whereas double annotation does not. We also note that on
+\texttt{gita-seed-0004}, the adjacent-verse near miss our two annotators split
+on, \emph{both} models sided with the draft, so an automatic pass cannot be
+relied on for exactly the adjacency judgements this benchmark targets.
+
+\paragraph{Remaining limitations.} Coverage is 120 of 622 items (19.3\%),
+concentrated in the seven corpora our annotators can read; the three excluded
+scripts are unverified. Agreement this high on a sample drawn from
+automatically validated items should be read as evidence that the ID-space
+validation and the drafting protocol are sound, not as evidence that the
+benchmark is error-free at scale.
+
+One component of our protocol remains \emph{unmeasured} rather than merely
+partial, and we name it rather than let its absence pass unremarked. Validating
+the \emph{content-support} judge---whether an automatic per-citation support
+label tracks human judgement---requires annotators to emit per-citation support
+ratings, which our review interface does not currently collect: it records a
+verdict and an optional citation edit, but not a support rating per cited unit.
+That calibration is therefore not reported here and is not substitutable by the
+agreement figures above, which concern citation \emph{identity}, not support.
+Consequently the exact-attribution half of our metric contribution is validated
+against human judgement on this sample, while the content-support half is
+specified and implemented but not yet validated. Collecting those ratings needs
+an interface change and a further annotation pass, not more compute.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Label} & \textbf{Statistic} & \textbf{Value} \\
+\midrule
+Citation set   & Krippendorff $\alpha$-MASI & \textbf{0.991} \\
+Citation set   & \% agreement               & 99.2 \\
+Verdict        & \% agreement               & 98.3 \\
+Verdict        & PABAK                      & 0.967 \\
+Verdict        & Cohen $\kappa$             & 0.000$^\dagger$ \\
+Question type  & Cohen $\kappa$             & 1.000 \\
+Ambiguity      & Cohen $\kappa$             & 1.000 \\
+\bottomrule
+\end{tabular}
+\caption{Inter-annotator agreement, 120 double-annotated items, 2 annotators.
+$^\dagger$degenerate marginals (238/240 \emph{approve}) collapse $\kappa$ despite
+98.3\% observed agreement; PABAK and \% agreement are the interpretable
+statistics here.}
+\label{tab:agreement}
+\end{table}
 
 \section{Limitations and Ethics}
 
-Items are model-drafted; human verification covers a stratified sample rather
-than the full 622, so absolute values may shift even though system orderings are
-unaffected. Three corpora lack script-competent annotation. The 120B reader
+Items are model-drafted; human verification covers a stratified sample (120 of
+622, double-annotated, $\alpha$-MASI $=0.991$), so absolute values may shift on
+the unverified remainder even though system orderings are unaffected. The three
+excluded scripts are unverified. Three corpora lack script-competent annotation. The 120B reader
 column covers two corpora. Hindi and native-script questions are machine
 translated, so translation artefacts are a confound we bound but do not
 eliminate. All corpora are public domain and we release only public-domain

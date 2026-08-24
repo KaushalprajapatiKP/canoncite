@@ -49,7 +49,21 @@ def adjudicate_item(item: dict, verdicts: Sequence[dict]) -> tuple[dict, dict]:
     edits applied and adjudication flags set; `decision` summarizes the outcome.
     """
     item = dict(item)  # shallow copy; we only replace top-level scalar/list fields
+
+    # Machine verdicts (agreement/auto_annotate.py) are NEVER counted as a reviewer.
+    # They live in a directory load_verdicts() does not read, so they should never
+    # arrive here at all; this is the belt-and-braces guard so that a misplaced file
+    # can never promote an item from `insufficient_reviews` to `verified`, which
+    # would launder model judgement into human-verified gold.
+    machine = [v for v in verdicts
+               if v.get("annotator_type") == "model"
+               or str(v.get("reviewer", "")).startswith("auto:")]
+    if machine:
+        verdicts = [v for v in verdicts if v not in machine]
+
     decision: dict = {"item_id": item.get("id"), "n_reviewers": len(verdicts)}
+    if machine:
+        decision["machine_verdicts_ignored"] = len(machine)
 
     if not verdicts:
         decision["resolution"] = "unreviewed"

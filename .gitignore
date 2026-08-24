@@ -198,3 +198,6 @@ canoncite/seed/.llm.env.*
 
 # local review verdicts (per-reviewer working data; aggregated gold.jsonl is tracked)
 canoncite/data/reviews/
+
+# machine second-pass verdicts (regenerable; kept out of the human review path)
+canoncite/data/reviews_auto/
