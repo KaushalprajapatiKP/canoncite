@@ -41,14 +41,15 @@ show that the cross-lingual attribution collapse is fundamentally a
 \emph{retrieval-ranking} failure: on our pilot corpora, attribution F1 under
 non-English queries rises from 0.177 to 0.690 through hybrid and reranked
 retrieval alone, with the gold unit retrieved but ranked at median 7--13
-throughout. We then show that a joint discriminative
-exact-ID selector cuts misattribution by 29--61\% at two LLM calls per item
-versus the Self-RAG/CRAG baseline's 10--17 (a $1.9\times$ saving once measured in
-tokens rather than calls)---and, contrary to our own hypothesis, that it does so
-by eliminating \emph{implausible} citations rather than by resolving near
-misses, which rise as a share of the residual error. The advantage is not an
-artefact of abstaining more: it holds with abstention removed from the
-denominator. A three-point reader study
+throughout. A joint discriminative exact-ID selector then
+\emph{significantly} reduces misattribution relative to that reranking baseline
+(29--61\% on the two pilot corpora; bootstrap 95\% CI excludes zero across all
+ten, under both aggregations we report), at two LLM calls per item. Against a
+reproduced Self-RAG/CRAG baseline it is directionally better but \emph{not}
+significantly so once abstention is removed from the denominator, and we report
+that rather than the aggregation under which it passes. Contrary to our own
+hypothesis, its gain comes from eliminating \emph{implausible} citations rather
+than from resolving near misses. A three-point reader study
 (8B/14B/120B) shows the advantage is capacity-dependent: below a threshold
 between 8B and 14B the decomposed baseline wins, a reversal that survives
 end-to-end replication (margin $0.026$ against a $\pm0.014$ noise band); the
@@ -97,14 +98,15 @@ operating over normalised IDs, integrating the fixed-ID existence check
 \cite{ovcharov2026citation} with the citation precision/recall paradigm
 \cite{gao2023alce} and adding misattribution and abstention measures
 (\S\ref{sec:metrics}).
-\item \textbf{C3 --- Method.} A joint discriminative exact-ID selector (E2) that
-attains the lowest misattribution rate of any system at two LLM calls per item
-against the SOTA's 10--17 ($1.9\times$ fewer prompt tokens), by eliminating
-\emph{implausible} misattributions and
-concentrating the residual error on genuine near neighbours---above a reader
-capacity threshold between 8B and 14B, below which the decomposed baseline is
-the more robust choice. Both the advantage and the reversal survive an
-end-to-end replication (\S\ref{sec:results}).
+\item \textbf{C3 --- A characterised selection rule (secondary).} A joint
+discriminative exact-ID selector (E2) that significantly improves on the
+reranking baseline (95\% CI excludes zero under two aggregations) at two LLM
+calls per item, and is directionally---but \emph{not} significantly---better
+than the reproduced SOTA once abstention is removed from the denominator. Its
+advantage is capacity-gated: below a threshold between 8B and 14B the decomposed
+baseline wins, a reversal that survives end-to-end replication. We present E2
+as a probe of \emph{why} the residual errors are hard, not as a system we claim
+beats the state of the art (\S\ref{sec:results}).
 \item \textbf{C4 --- Findings.} The cross-lingual collapse is localised to
 retrieval \emph{ranking} (the gold unit is retrieved but ranked at median 7--13);
 near misses grow from 8\% to 13\% of residual misattributions as systems improve,
@@ -130,12 +132,11 @@ truth is \emph{support}, not identity; a near-miss citation to a semantically
 equivalent neighbour is scored correct. Surveys of evidence-based generation
 \cite{evidencesurvey2025} confirm this framing dominates.
 
-\paragraph{Fixed-ID attribution.} \citet{ovcharov2026citation} shows that a
-closed citation graph turns verification into an exact lookup, for US legal
-citations in English. We adopt the idea and credit it; our contribution is
-extending it across traditions, scripts, and query languages, and specifying its
-validation against human judgement---a generality claim no prior fixed-ID work
-makes.
+\paragraph{Fixed-ID attribution.} \citet{ovcharov2026citation} shows a closed
+citation graph turns verification into an exact lookup, for US legal citations
+in English. We adopt and credit the idea; our contribution is extending it
+across traditions, scripts and query languages---a generality claim no prior
+fixed-ID work makes.
 
 \paragraph{Indic and religious NLP.} MILU \cite{verma2024milu}, ParamBench
 \cite{parambench2025} and IndicQA \cite{indicqa2024} evaluate Indic
@@ -214,16 +215,13 @@ is a \emph{draft}, never ground truth: human annotators work with the corpus
 open, seeing each candidate ID's actual text, and confirm or correct the gold
 set, answerability, and distractors (\S\ref{sec:agreement} reports coverage).
 
-\paragraph{Tiered annotation.} Double-annotating verse-level ground truth across
-four traditions and five scripts exceeds a small team's budget, and annotator
-scarcity---not compute---is this benchmark's binding constraint. We therefore
-declare two tiers rather than hide a quality gradient. \textbf{Tier A} (Bhagavad
-G\={\i}t\={a}, Bible, Constitution, Thirukku\d{r}a\d{l}) targets full double
-annotation with per-citation content-support labels, and carries the C2
-generality claim. \textbf{Tier B} (the remaining six) covers factual, retrieval
-and unanswerable items only---all auto-checkable with NLI-free metrics---
-extending the language, script and tradition axes at low annotation cost. Each
-corpus's tier is recorded in the datasheet.
+\paragraph{Tiered annotation.} Annotator scarcity, not compute, is this
+benchmark's binding constraint, so we declare two tiers rather than hide a
+quality gradient. \textbf{Tier A} (G\={\i}t\={a}, Bible, Constitution,
+Thirukku\d{r}a\d{l}) targets full double annotation with per-citation support
+labels; \textbf{Tier B} (the remaining six) covers factual, retrieval and
+unanswerable items only, all auto-checkable with NLI-free metrics, extending the
+language and tradition axes cheaply. Tiers are recorded in the datasheet.
 
 \section{Metrics}
 \label{sec:metrics}
@@ -331,43 +329,57 @@ hybrid+rerank nearly quadruples it.}
 \label{tab:ladder}
 \end{table}
 
+\paragraph{Does E2 beat the baselines? A paired bootstrap.} Our margins are
+close enough to measurement noise that a point estimate cannot carry the claim,
+so we test them. We resample the 14 cross-lingual cells with replacement
+($B=10{,}000$) and recompute each pairwise margin, reporting 95\% intervals
+(Table~\ref{tab:boot}). Two results follow, and they differ.
+
+Against the reranking baseline C, \textbf{E2's advantage is significant under
+both aggregations}: $-0.101$ macro MAR (95\% CI $[-0.164, -0.046]$) and
+$-0.055$ wrong-citations-per-item (CI $[-0.093, -0.015]$). Joint discriminative
+selection reliably improves on reranking alone.
+
+Against the reproduced SOTA D, \textbf{it is not established}. The macro margin
+is significant ($-0.070$, CI $[-0.159, -0.004]$) but the coverage-corrected
+per-item margin is not ($-0.024$, CI $[-0.061, +0.011]$), and an item-level
+bootstrap agrees (CI $[-0.041, +0.009]$). Since the per-item metric is the one
+that answers the abstention objection, we take the conservative reading:
+\textbf{E2 is directionally better than D across every aggregation, reader and
+metric we measured, but this study is not powered to establish it.} We state
+that as the result rather than reporting the aggregation under which the gate
+passes and omitting the one under which it does not. Confirming or refuting it
+needs more cells---more corpora, or more languages per corpus---not more
+analysis of these.
+
 \begin{table}[t]
 \centering\small
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}llcc@{}}
 \toprule
-\textbf{Corpus} & \textbf{C} & \textbf{D} & \textbf{E2 (ours)} \\
+\textbf{Pair} & \textbf{Metric} & \textbf{Margin} & \textbf{95\% CI} \\
 \midrule
-Bhagavad G\={\i}t\={a}  & 0.272 & 0.200 & \textbf{0.166} \\
-Yoga S\={u}tras         & 0.233 & 0.158 & \textbf{0.137} \\
-Upani\d{s}ads           & 0.340 & 0.427 & \textbf{0.125} \\
-Bible                   & --    & 0.316 & \textbf{0.256} \\
-Constitution of India   & --    & 0.370 & \textbf{0.265} \\
-Mah\={a}bh\={a}rata     & 0.375 & 0.472 & \textbf{0.312} \\
-Dhammapada              & 0.637 & 0.487 & \textbf{0.449} \\
-Thirukku\d{r}a\d{l}     & 0.317 & \textbf{0.225} & 0.282 \\
-Guru Granth Sahib       & 0.841 & \textbf{0.833} & 0.838 \\
-R\={a}m\={a}ya\d{n}a    & 0.839 & \textbf{0.844} & 0.909 \\
-\midrule
-\textbf{All (18 cells)} & 0.482 & 0.443 & \textbf{0.387} \\
+E2 vs C & macro MAR   & $-0.101$ & $[-0.164,-0.046]$ \\
+E2 vs C & wrong/item  & $-0.055$ & $[-0.093,-0.015]$ \\
+E2 vs D & macro MAR   & $-0.070$ & $[-0.159,-0.004]$ \\
+E2 vs D & wrong/item  & $-0.024$ & $[-0.061,+0.011]$ \\
+D  vs C & macro MAR   & $-0.030$ & $[-0.077,+0.019]$ \\
 \bottomrule
 \end{tabular}
-\caption{\textbf{The gate.} Cross-lingual misattribution rate$\downarrow$ per
-corpus, \textbf{all ten corpora}, Qwen2.5-14B reader. E2 attains the lowest
-overall MAR, at 2 LLM calls/item versus D's 10--17. Per-corpus differences
-smaller than the measured per-cell $\sigma\!=\!0.030$ should not be read as
-orderings. The three losses are the low-resource-script corpora where every
-system degrades badly (MAR $>0.8$ for Gurmukhi and R\={a}m\={a}ya\d{n}a).
-Cross-lingual F1: D 0.440, E2 0.423---F1 is not what a verification layer
-optimises.}
-\label{tab:gate}
+\caption{Paired bootstrap over cross-lingual cells ($B=10{,}000$), negative
+favours the first system. E2 improves significantly on the reranking baseline
+under both aggregations; its advantage over the SOTA is directional but not
+significant once abstention is removed from the denominator.}
+\label{tab:boot}
 \end{table}
 
-\paragraph{Joint selection removes implausible citations, not near misses.}
-E2 presents the reranked candidates together and forces one exact-source choice.
-Across all ten corpora it attains the lowest cross-lingual MAR of any system
-(0.387 vs D's 0.443; Table~\ref{tab:gate}), winning 7 of 10 corpora, with the
-largest margins on Upani\d{s}ads ($0.427\!\to\!0.125$) and Mah\={a}bh\={a}rata
-($0.472\!\to\!0.312$). \textbf{The pre-committed gate passes.}
+\paragraph{Why we report no per-corpus ordering.} Cell-level uncertainty is far
+from uniform, because MAR's denominator is the number of \emph{citing} items,
+which ranges from 9 to 80 across our cells. R\={a}m\={a}ya\d{n}a Hindi has 9,
+giving its MAR a binomial standard error near 0.10, so an apparent 0.065
+difference there is a single item. Two cells have no MAR at all: C cited nothing
+under Hindi queries for Bible and the Constitution ($n_{\text{citing}}=0$),
+which leaves the rate undefined rather than indicating a missing run. Per-corpus
+values are in the released JSONL; we draw no conclusions from them.
 
 \paragraph{Aggregation, and why we report both.} MAR is defined over
 \emph{citing} items, so a cell's value is a ratio whose denominator differs by
@@ -386,15 +398,26 @@ aggregation choice do silent work.
 \paragraph{The advantage is not an artefact of abstaining more.} MAR's
 denominator invites a specific objection: a system that declines the hard items
 can post a low misattribution rate without discriminating better, and E2 does
-have the highest wrong-abstention rate of the three (0.487 versus D's 0.439). We
+have the highest wrong-abstention rate of the three (0.470 versus D's 0.409 and
+C's 0.410, over all 18 cross-lingual cells; figures elsewhere in this paper use
+the same 18-cell basis). We
 therefore recompute the comparison with abstention removed from the denominator
 entirely---wrong citations per \emph{item attempted}, not per citing item.
-Cross-lingually, E2 makes 0.137 wrong citations per item against D's 0.153 and
-C's 0.179 (pilot: 0.121 / 0.148 / 0.205), at citation coverages of 0.489, 0.526
-and 0.519 respectively. The ordering is unchanged, so selectivity does not
-explain it. One caveat: the per-cell version of this check is weak---restricted
-to the seven cells where E2 cites at least as often as D, E2 has the lower MAR in
-four. The aggregate is the evidence; the per-cell story is a coin flip.
+Define wrong citations per item as $\sum_c \text{MAR}_c \cdot n^{\text{cite}}_c
+\,/\, \sum_c n_c$: the numerator counts wrong citations, the denominator counts
+\emph{all} items including those the system declined. Worked example, Yoga
+S\={u}tras Hindi: $n=50$, $n^{\text{cite}}=38$, $\text{MAR}=0.132$, so
+$0.132 \times 38 = 5$ wrong citations over 50 items $= 0.100$. Note this pools
+over cells (micro); multiplying the \emph{macro} MAR we quote elsewhere by
+coverage will not reproduce it, and we flag that because the two aggregations
+are not interchangeable.
+
+Cross-lingually, E2 makes 0.139 wrong citations per item against D's 0.166 and
+C's 0.179, at citation coverages of 0.503, 0.556 and 0.519. E2 does attempt
+fewer items than D---that is precisely why this metric, not MAR, is the right
+one for the comparison---and the ordering is unchanged when the advantage
+selectivity might have conferred is removed. The margin over D is nonetheless
+not significant (Table~\ref{tab:boot}); over C it is.
 
 \paragraph{The mechanism is not the one we hypothesised.} The near-miss rate says
 so. NMR---the share of wrong citations landing on a declared near-miss
@@ -416,45 +439,22 @@ the right neighbourhood is a judgement an 8B reader can partly make, but choosin
 \emph{within} that neighbourhood is what scales with capacity. Consistent with
 this, E2 has the best abstention accuracy of any system (0.955 cross-lingual,
 0.986 English) and the lowest over-citation rate (0.045), but the highest
-wrong-abstention rate (0.470)---it is the most willing to decline, which is the
+wrong-abstention rate (0.470, same basis)---it is the most willing to decline, which is the
 correct bias for citation-critical use and a cost we state rather than hide.
 
 \paragraph{Script, not ``low-resource'', is the discriminating variable.}
-Breaking the grid down by query script (Table~\ref{tab:script}) refines the
-picture in a way the aggregate hides. Devanagari queries---Hindi and
+Breaking the grid down by query script refines the picture in a way the
+aggregate hides (full per-script figures in the released results). Devanagari queries---Hindi and
 Sanskrit---behave like English once ranking is fixed (E2 F1 0.477 and 0.392
 against English's 0.472). Tamil, often grouped as low-resource, is in fact the
 \emph{best} cross-lingual condition we measure under reranking (C F1 0.625).
 What collapses is Gurmukhi and P\={a}li, at MAR 0.83 and 0.80 respectively,
-where no system recovers. The common factor is not script frequency but our own
-release constraint: Guru Granth Sahib is the largest ID space in the benchmark
-(60{,}555 units) \emph{and} native-script-only for copyright reasons, and the
-P\={a}li questions are the one language IndicTrans2 does not cover, so they were
-produced by prompted generation. These are single-cell conditions ($n=1$ corpus
-each), so we report them as a located weakness rather than a script-level claim,
-and they account for E2's three per-corpus losses in Table~\ref{tab:gate}. Once
-a reader cannot read the script at all, there is no discrimination left for any
-selector to make.
-
-\begin{table}[t]
-\centering\small
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-\textbf{Query script} & \textbf{cells} & \textbf{A F1} & \textbf{E2 F1} & \textbf{E2 MAR} \\
-\midrule
-Latin (English)        & 10 & 0.422 & 0.472 & 0.311 \\
-Devan\={a}gar\={\i} (Hindi)  & 10 & 0.166 & \textbf{0.477} & 0.336 \\
-Devan\={a}gar\={\i} (Sanskrit) & 5 & 0.194 & 0.392 & 0.317 \\
-Tamil                  & 1  & 0.100 & 0.579 & 0.383 \\
-Gurmukhi               & 1  & 0.222 & 0.167 & \textbf{0.833} \\
-Latin (P\={a}li)       & 1  & 0.167 & 0.142 & \textbf{0.800} \\
-\bottomrule
-\end{tabular}
-\caption{By query script, all ten corpora, Qwen2.5-14B. Devanagari recovers to
-English-level attribution once ranking is fixed; Gurmukhi and P\={a}li do not.
-Tamil, despite being low-resource, is among the strongest conditions.}
-\label{tab:script}
-\end{table}
+where no system recovers. The common factor is not script frequency but our own release
+constraint: Guru Granth Sahib is the benchmark's largest ID space (60{,}555
+units) \emph{and} native-script-only for copyright reasons, and P\={a}li is the
+one language IndicTrans2 does not cover, so those questions came from prompted
+generation. Both are single-corpus conditions, so we report them as a located
+weakness rather than a script-level claim.
 
 \paragraph{The gate is reader-capacity-dependent.} Re-running C, E2 and D on all
 28 cells with Aya-Expanse-8B \cite{aya2024expanse} \emph{flips} the result: D
@@ -533,9 +533,12 @@ per-passage judgements carry one passage each, so D's call-count disadvantage do
 not translate proportionally into tokens. Estimating prompt tokens from the actual
 templates and measured mean passage lengths across five corpora, E2 uses
 $\approx$1{,}200 prompt tokens per item against D's $\approx$2{,}300---a
-\textbf{$1.9\times$} reduction, not $5$--$8\times$. The honest summary is that E2
-is dramatically cheaper in requests and latency-bound settings, and roughly half
-the cost where billing is per token. Neither system uses an NLI model:
+\textbf{$1.9\times$} reduction, not $5$--$8\times$. Two honest qualifications. The token figure is estimated from templates and
+measured passage lengths, not metered from the runs. And D's $k$ relevance
+judgements are mutually independent and therefore batchable, whereas E2's two
+calls are strictly sequential---so under a parallel implementation D's latency
+disadvantage largely disappears, and the remaining argument for E2 is request
+count and token volume, not wall-clock. Neither system uses an NLI model:
 verification is an exact lookup against $U$.
 
 \paragraph{Interpretation.} C3 lands as a \emph{capacity-matched selection
@@ -561,16 +564,14 @@ F1 and misattributes on roughly \emph{four citations in five} (MAR 0.807 /
 and more than halves misattribution---the system results are not an artefact of
 memorisation in aggregate.
 
-Per corpus, however, the picture splits sharply. The Bhagavad G\={\i}t\={a} is
-substantially memorised (closed-book English F1 0.497, against 0.310 for the
-next-highest corpus), so G\={\i}t\={a} numbers should be read as partly
-parametric---a caveat that matters because the G\={\i}t\={a} is one of our two
-pilot corpora. At the other extreme, four corpora---Bible, Guru Granth Sahib,
-R\={a}m\={a}ya\d{n}a and the Constitution---show retrieval adding essentially
-\emph{nothing} over memory (e.g.\ Bible $0.125 \!\to\! 0.125$; Constitution
-$0.100 \!\to\! 0.107$), because retrieval itself is failing on them. Where
-retrieval works it is transformative: Thirukku\d{r}a\d{l} $0.086 \!\to\! 0.775$,
-Dhammapada $0.182 \!\to\! 0.815$, Yoga S\={u}tras $0.310 \!\to\! 0.809$.
+Per corpus the picture splits sharply. The Bhagavad G\={\i}t\={a} is
+substantially memorised (closed-book English F1 0.497 against 0.310 for the next
+corpus), so its numbers are partly parametric---a caveat that matters because it
+is one of our two pilot corpora. Four corpora (Bible, Guru Granth Sahib,
+R\={a}m\={a}ya\d{n}a, Constitution) show retrieval adding essentially nothing
+over memory because retrieval itself fails on them; where retrieval works it is
+transformative (Thirukku\d{r}a\d{l} $0.086 \!\to\! 0.775$, Dhammapada
+$0.182 \!\to\! 0.815$).
 
 The control also makes MAR-exist interpretable: with nothing retrieved, any
 cited ID came from memory alone---and MAR-exist remains 0.000, so even
@@ -732,7 +733,7 @@ condition, ``cross-lingual attribution collapse'' and ``translationese
 collapse'' are not separated by our design. Two observations bear on it without
 resolving it---the collapse is localised to ranking rather than reading
 (Table~\ref{tab:recall}), and Devanagari conditions recover to English-level
-attribution once ranking is fixed (Table~\ref{tab:script}), neither of which is
+attribution once ranking is fixed, neither of which is
 what one would expect if degraded query fluency were the dominant cause. A
 natively-authored query set for even one corpus would settle it, and is the
 single most valuable addition to a future release. All corpora are public domain and we release only public-domain
@@ -741,30 +742,39 @@ native-script text alone. The benchmark measures \emph{attribution, not
 endorsement}: citing a verse correctly is a factual claim about provenance and
 carries no theological position. We follow the datasheet convention of \citet{gebru2021datasheets}.
 
-\paragraph{Availability.} The ten frozen corpora, all 622 items with their
-trilingual questions, the 118 human-verified gold items, the metric harness with
-its 45 unit tests, and every system in the ladder (A--E2 plus the closed-book
-control) are released together, along with the per-cell JSONL from which every
-number in this paper is read. Released text is public-domain throughout; for the
-three corpora whose only English rendering is under copyright we release the
-native-script text alone, which is why those corpora require cross-lingual
-retrieval by construction. Machine-generated second-pass annotations are kept in
-a separate store from human verdicts and are excluded from adjudication, so no
-item in the released gold set was promoted by a model.
+\paragraph{Availability.} Corpora, all 622 items, the 118 human-verified gold
+items, the harness with its 45 unit tests, every system (A--E2 and the
+closed-book control), and the per-cell JSONL from which every number here is
+read are released together. Released text is public-domain throughout; the three
+corpora whose only English rendering is under copyright ship native-script text
+alone, which is why they require cross-lingual retrieval by construction.
+Machine second-pass annotations are stored apart from human verdicts and
+excluded from adjudication, so no released gold item was promoted by a model.
 
 \section{Conclusion}
 
 Citing the wrong canonical unit is a distinct failure that support-based
 attribution metrics cannot see, and it is worst exactly where canonical texts
 carry most weight and NLP resources are thinnest. CANONCITE measures it directly
-over ten corpora, five scripts, and three query-language conditions. Our results
-localise the cross-lingual collapse to retrieval ranking, show the residual
-errors are near misses that per-passage verification structurally cannot
-resolve, and establish that joint discriminative exact-ID selection resolves
-them at two LLM calls per item against the SOTA's 10--17---above a
-reader-capacity threshold we
-locate, and with a margin that widens as readers scale. We release the corpora,
-items, harness, and all system code.
+over ten corpora, five scripts, and three query-language conditions. Two results are solid. The cross-lingual collapse is a
+\emph{ranking} failure---retrieval finds the gold unit (R@50 0.93--0.99) and
+misranks it (median 7--13)---and a verify-and-repair layer cannot fix what
+retrieval never surfaced. And the residual error, once ranking is fixed,
+concentrates on genuine near neighbours, which is where the remaining difficulty
+lives.
+
+Our method result is deliberately stated more narrowly. Joint discriminative
+exact-ID selection significantly improves on the reranking baseline at two LLM
+calls per item; against a reproduced Self-RAG/CRAG baseline it is directionally
+better under every aggregation, reader and metric we measured, but a paired
+bootstrap does not establish it once abstention is removed from the denominator,
+and the ordering reverses below a reader-capacity threshold between 8B and 14B.
+We therefore offer E2 as a well-characterised probe of why near-neighbour
+attribution is hard, not as a system we claim beats the state of the art.
+Settling that would take more cells---more corpora or more languages---and a
+natively-authored query set would settle the larger question of how much of the
+cross-lingual effect is translationese. We release the corpora, items, harness,
+and all system code.
 
 \section*{Acknowledgements}
 
