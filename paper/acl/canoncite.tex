@@ -46,8 +46,7 @@ misattribution of any system we test, at two LLM calls per item---but a paired
 bootstrap shows the advantage is \emph{directional rather than established}:
 significance depends on whether cells or items are the resampling unit and on
 whether abstention is removed from the metric's denominator, and no comparison
-clears zero under all of them. We report that rather than the single
-aggregation under which our pre-specified gate passes. Contrary to our own
+clears zero under all of them. Contrary to our own
 hypothesis, the gain comes from eliminating \emph{implausible} citations rather
 than from resolving near misses. A three-point reader study
 (8B/14B/120B) shows the advantage is capacity-dependent: below a threshold
@@ -106,8 +105,9 @@ attribution errors are hard, not as a system we claim beats the state of the
 art.
 \item \textbf{C4 --- Findings.} The cross-lingual collapse is localised to
 retrieval \emph{ranking} (the gold unit is retrieved but ranked at median 7--13);
-near misses grow from 8\% to 13\% of residual misattributions as systems improve,
-so adjacency discrimination is what remains unsolved; and MAR-exist $=0.000$
+the near-miss share of residual misattributions grows from 8\% to 13\% as systems
+improve, reaching $1.8\times$ the measured chance rate while remaining a
+minority; and MAR-exist $=0.000$
 throughout separates ``cannot read the language'' from ``misattributes''.
 \end{itemize}
 
@@ -146,9 +146,8 @@ and scripts.
 \paragraph{Repair methods.} CiteFix \cite{maheshwari2025citefix}, VeriCite
 \cite{qian2025vericite}, RARR \cite{gao2023rarr}, Self-RAG
 \cite{asai2024selfrag} and CRAG \cite{yan2024crag} all verify or repair
-per-passage. \S\ref{sec:results} shows this family is \emph{subsumed} once
-ranking is fixed, and that joint discrimination is what the residual errors
-require.
+per-passage. \S\ref{sec:results} shows this family is largely \emph{subsumed} once
+ranking is fixed: a verifier can only repair to a unit retrieval surfaced.
 
 \section{The CANONCITE Benchmark}
 \label{sec:bench}
@@ -203,22 +202,19 @@ and nothing else.
 
 \paragraph{Construction protocol.} Corpora are frozen first: a version-hashed
 \texttt{corpus\_index.jsonl} per corpus fixes $U$, and nothing downstream may
-cite an ID outside it. Items are then drafted by a pinned LLM \emph{conditioned
-on retrieved real units}, over-generating $\sim$1.5$\times$ to allow rejection;
-unanswerable items are seeded from out-of-corpus topics and cross-corpus swaps.
-Every drafted gold citation is automatically validated against $U$, so a
-fabricated identifier cannot enter the benchmark by construction. Model output
-is a \emph{draft}, never ground truth: human annotators work with the corpus
-open, seeing each candidate ID's actual text, and confirm or correct the gold
-set, answerability, and distractors (\S\ref{sec:agreement} reports coverage).
+cite an ID outside it. Items are drafted by a pinned LLM \emph{conditioned on retrieved real units},
+over-generating $\sim$1.5$\times$ to allow rejection; unanswerable items come
+from out-of-corpus topics and cross-corpus swaps. Every drafted gold citation is
+validated against $U$, so a fabricated identifier cannot enter by construction.
+Model output is a \emph{draft}, never ground truth: annotators work with the
+corpus open and confirm or correct the gold set, answerability and distractors.
 
-\paragraph{Tiered annotation.} Annotator scarcity, not compute, is this
-benchmark's binding constraint, so we declare two tiers rather than hide a
-quality gradient. \textbf{Tier A} (G\={\i}t\={a}, Bible, Constitution,
-Thirukku\d{r}a\d{l}) targets full double annotation with per-citation support
-labels; \textbf{Tier B} (the remaining six) covers factual, retrieval and
-unanswerable items only, all auto-checkable with NLI-free metrics, extending the
-language and tradition axes cheaply. Tiers are recorded in the datasheet.
+\paragraph{Tiered annotation.} Annotator scarcity, not compute, is the binding
+constraint, so we declare two tiers rather than hide a quality gradient: Tier A
+(G\={\i}t\={a}, Bible, Constitution, Thirukku\d{r}a\d{l}) targets full double
+annotation with per-citation support labels; Tier B covers auto-checkable item
+types only, extending the language and tradition axes cheaply. Tiers are
+recorded in the datasheet.
 
 \section{Metrics}
 \label{sec:metrics}
@@ -228,16 +224,15 @@ verification is exact lookup with no NLI model. Let an item have gold set $G$ an
 a system emit cited set $C$.
 
 \begin{itemize}[noitemsep,topsep=2pt]
-\item \textbf{Attribution P/R/F1 (exact)}: set overlap of $C$ and $G$. We also
-report a \emph{span} variant crediting a correct chapter with a wrong verse.
-\item \textbf{Misattribution Rate (MAR)}: the fraction of \emph{citing} items
-where $C \not\subseteq G$---the benchmark's gated axis. It decomposes into
-\textbf{MAR-exist} (cited an ID not in $U$, i.e.\ a fabricated identifier) and
-\textbf{MAR-support} (cited a real but wrong unit).
-\item \textbf{Near-miss MAR (NMR)}: MAR restricted to citations landing on a
-declared near-miss distractor.
+\item \textbf{Attribution P/R/F1 (exact)}: set overlap of $C$ and $G$, plus a
+\emph{span} variant crediting a correct chapter with a wrong verse.
+\item \textbf{Misattribution Rate (MAR)}: fraction of \emph{citing} items where
+$C \not\subseteq G$, decomposing into \textbf{MAR-exist} (an ID not in $U$: a
+fabricated identifier) and \textbf{MAR-support} (a real but wrong unit).
+\item \textbf{Near-miss MAR (NMR)}: the share of wrong citations landing on a
+declared distractor.
 \item \textbf{Abstention accuracy}, \textbf{over-citation} and
-\textbf{wrong-abstention} rates, over the \texttt{must\_abstain} items.
+\textbf{wrong-abstention}, over the \texttt{must\_abstain} items.
 \end{itemize}
 
 MAR-exist is 0.000 in every run we report: models cite \emph{real} units
@@ -337,6 +332,10 @@ perfectly \emph{defined} for wrong-citations-per-item---zero wrong citations ove
 $n$ items is $0.000$, the best possible score---so every per-item comparison uses
 all 18. Excluding them would drop the two cells where the baseline scores
 perfectly on the metric we introduced precisely to neutralise selectivity.
+One consequence: each paired margin is computed on the cells common to that
+\emph{pair}, so it will not in general equal the difference of the two headline
+means. E2-vs-D uses all 18 and does reconcile ($0.387-0.443=-0.057$); E2-vs-C
+uses 16, on which the means are 0.402 and 0.482 rather than 0.387 and 0.482.
 
 \begin{table}[t]
 \centering\small
@@ -349,6 +348,7 @@ E2 vs D & macro MAR  & $-0.057$ & $[-0.129,-0.002]$ \\
 E2 vs C & macro MAR  & $-0.080$ & $[-0.141,-0.024]$ \\
 E2 vs D & wrong/item & $-0.027$ & $[-0.059,+0.005]$ \\
 E2 vs C & wrong/item & $-0.016$ & $[-0.063,+0.033]$ \\
+D  vs C & macro MAR  & $-0.026$ & $[-0.067,+0.017]$ \\
 D  vs C & wrong/item & $+0.012$ & $[-0.039,+0.072]$ \\
 \multicolumn{4}{@{}l}{\emph{item-level bootstrap}} \\
 E2 vs D & wrong/item & $-0.027$ & $[-0.051,-0.004]$ \\
@@ -356,25 +356,23 @@ E2 vs C & wrong/item & $-0.016$ & $[-0.039,+0.008]$ \\
 \bottomrule
 \end{tabular}
 \caption{Paired bootstrap ($B=10{,}000$), negative favours the first system.
-Significance depends on both the aggregation and the resampling unit, and no
-comparison clears zero under all four combinations.}
+Significance depends on both the aggregation and the resampling unit. We omit
+macro~$\times$~item-level, for which resampling items does not induce a
+well-defined distribution over per-cell rate averages.}
 \label{tab:boot}
 \end{table}
 
-\textbf{The result is directional and not robust.} On point estimates E2 is the
-best system under both metrics (macro MAR 0.387 vs D 0.443 and C 0.482;
-wrong-citations-per-item 0.139 vs C 0.154 and D 0.166). But significance depends
-on choices a reader could reasonably make differently. Under macro MAR, E2 beats
-both baselines with intervals excluding zero. Under the coverage-corrected
-per-item metric, the cluster bootstrap finds nothing significant, while an
-item-level bootstrap finds E2-vs-D significant ($[-0.051,-0.004]$) because it
-treats items as independent and so ignores the clustering that corpus and
-language plainly induce. With 18 clusters the cluster bootstrap is the
-appropriate and more conservative choice, and we take its reading: \textbf{E2 is
-consistently ahead of both baselines and we cannot establish it at this scale.}
-The two metrics do not even agree on whether D beats C. We also apply no
-multiple-comparison correction across these five tests; the E2-vs-D macro
-interval, whose upper bound is $-0.002$, would not survive one.
+\textbf{Directional, not robust.} On point estimates E2 leads under both metrics
+(macro MAR 0.387 vs D 0.443, C 0.482; per-item 0.139 vs C 0.154, D 0.166). But
+significance depends on choices a reader could make differently. Under macro MAR
+E2 beats both baselines; under the coverage-corrected metric the cluster
+bootstrap finds nothing significant, while an item-level bootstrap finds E2-vs-D
+significant ($[-0.051,-0.004]$) only because it treats items as independent,
+ignoring the clustering corpus and language plainly induce. With 18 clusters the
+cluster bootstrap is the conservative and appropriate choice, and we take its
+reading: \textbf{E2 is consistently ahead and we cannot establish it at this
+scale.} We apply no multiple-comparison correction across these six tests; the
+E2-vs-D macro interval (upper bound $-0.002$) would not survive one.
 
 \paragraph{The pre-committed gate, adjudicated.} We pre-specified that E2 must
 beat D on cross-lingual MAR. \textbf{On its own terms it passes}: 0.387 versus
@@ -390,7 +388,8 @@ defensible by the letter of our own protocol and misleading in substance.
 system. Averaging those ratios across cells (macro) weights a 12-item Gurmukhi
 condition equally with an 80-item Bible one; pooling wrong citations over all
 citing items (micro) weights by volume. The choice is not innocuous here: the
-E2-versus-D cross-lingual margin is $-0.054$ macro but $-0.011$ micro. We report
+E2-versus-D cross-lingual margin is $-0.057$ macro (all 18 cells) but $-0.011$
+micro. We report
 macro throughout, because the benchmark is designed so that each
 corpus~$\times$~language condition is an experimental unit of equal interest, and
 pooling would let the two largest corpora determine a result about cross-lingual
@@ -404,9 +403,8 @@ clears zero. That is part of why we take the conservative reading throughout.
 \paragraph{The advantage is not an artefact of abstaining more.} MAR's
 denominator invites a specific objection: a system that declines the hard items
 can post a low misattribution rate without discriminating better, and E2 does
-have the highest wrong-abstention rate of the three (0.470 versus D's 0.409 and
-C's 0.410, over all 18 cross-lingual cells; figures elsewhere in this paper use
-the same 18-cell basis). We
+have the highest wrong-abstention rate of the three (0.470 versus D's 0.409 and C's 0.410, over all 18
+cross-lingual cells). We
 therefore recompute the comparison with abstention removed from the denominator
 entirely---wrong citations per \emph{item attempted}, not per citing item.
 Define wrong citations per item as $\sum_c \text{MAR}_c \cdot n^{\text{cite}}_c
@@ -418,29 +416,53 @@ over cells (micro); multiplying the \emph{macro} MAR we quote elsewhere by
 coverage will not reproduce it, and we flag that because the two aggregations
 are not interchangeable.
 
-Cross-lingually, E2 makes 0.139 wrong citations per item against D's 0.166 and
-C's 0.179, at citation coverages of 0.503, 0.556 and 0.519. E2 does attempt
-fewer items than D---that is precisely why this metric, not MAR, is the right
-one for the comparison---and the ordering is unchanged when the advantage
-selectivity might have conferred is removed. The margin over D is nonetheless
-not significant (Table~\ref{tab:boot}); over C it is.
+Cross-lingually, E2 makes 0.139 wrong citations per item, against C's 0.154 and
+D's 0.166. E2 does attempt fewer items than D---that is precisely why this
+metric, not MAR, is the right one here---and it remains ahead once the advantage
+selectivity might have conferred is removed. Neither margin is significant under
+the cluster bootstrap (Table~\ref{tab:boot}).
+
+\textbf{The correction reorders the baselines.} Under macro MAR, D (0.443) is
+ahead of C (0.482); under wrong-citations-per-item, C (0.154) is ahead of D
+(0.166). The reproduced Self-RAG/CRAG pipeline emits \emph{more} wrong citations
+per item than the reranking baseline it is built on top of, at five to eight
+times the LLM calls---its lower MAR is bought by citing more often, which MAR's
+denominator does not charge it for. Neither margin is significant, so we do not
+claim C beats D; but the disagreement is a result about the verify-and-repair
+family rather than a curiosity about metrics, and it is consistent with
+our earlier finding that E-on-BM25 barely moves attribution.
 
 \paragraph{The mechanism is not the one we hypothesised.} The near-miss rate says
 so. NMR---the share of wrong citations landing on a declared near-miss
 distractor---\emph{rises} as misattribution falls: cross-lingually, C sits at MAR
 0.482 with NMR 0.082, E2 at MAR 0.387 with NMR 0.129 (on the pilot corpora,
-0.259/0.121 versus 0.158/0.268). E2 therefore does \emph{not} preferentially
-resolve near misses; it preferentially removes the \emph{implausible}
-misattributions---citations to units that are not even credible
-neighbours---leaving genuine near-neighbour discrimination as the residue. Two
-qualifications keep this from being over-read. The distractors are
+0.259/0.121 versus 0.158/0.268). E2 therefore does \emph{not} preferentially resolve near misses; if anything the
+opposite. But the share must be read at its actual size: at NMR 0.129,
+\textbf{87\% of E2's wrong citations do not land on a declared distractor at
+all}. Adjacency is a growing minority of the residual error, not its bulk, and
+we say so rather than describe the residue as concentrating on near neighbours.
+Three qualifications keep this from being over-read. The distractors are
 \emph{model-declared} at item construction, so NMR measures adjacency as the
-drafting model conceived it, not as a philologist would. And a rising
-\emph{share} is partly arithmetic once the easy errors are gone; the supporting
-observation is that the absolute near-miss rate also rises slightly
-($0.031 \to 0.042$ on the pilot), which is not automatic.
+drafting model conceived it, not as a philologist would. A rising
+\emph{share} is partly arithmetic once the easy errors are gone, though the
+absolute near-miss rate also rises slightly ($0.031 \to 0.042$ on the pilot),
+which is not automatic.
 
-This also explains the capacity dependence in \S\ref{sec:results}: narrowing to
+\textbf{Adjacency is over-represented, and we measure by how much.} A share is
+only interpretable against the chance of hitting a distractor at all. We
+therefore compute the base rate directly: over 228 pilot cross-lingual items, we
+rerank the candidate pool as the systems do and ask what fraction of the
+\emph{non-gold} slots in the top-8 are declared distractors. It is
+\textbf{0.072}. Against that null, C's NMR of 0.082 is $1.1\times$ chance and not
+distinguishable from it ($z=0.5$), whereas D's 0.115 is $1.6\times$ ($z=2.2$) and
+E2's 0.129 is $\mathbf{1.8\times}$ ($z=2.7$). So adjacency errors are genuinely
+over-represented among the residual errors of the stronger systems, and
+increasingly so as systems improve---while still accounting for a minority of
+them. The null assumes a wrong citation is uniform over non-gold candidates in
+the reranked window, and the base rate is measured on the pilot conditions and
+applied throughout; both are approximations we state rather than hide.
+
+This also explains the capacity dependence reported below: narrowing to
 the right neighbourhood is a judgement an 8B reader can partly make, but choosing
 \emph{within} that neighbourhood is what scales with capacity. Consistent with
 this, E2 has the best abstention accuracy of any system (0.955 cross-lingual,
@@ -491,8 +513,9 @@ gpt-oss-120B   & 0.313 & \textbf{0.121} & 0.202 & $\mathbf{-0.081}$ \\
 \bottomrule
 \end{tabular}
 \caption{Cross-lingual MAR$\downarrow$ on matched pilot cells (G\={\i}t\={a} +
-Yoga S\={u}tras $\times$ hi/sa; 4 cells, $n=264$). E2's advantage grows
-monotonically with reader capacity.}
+Yoga S\={u}tras $\times$ hi/sa; 4 cells, $n=264$). E2's margin is largest at the
+largest reader. Three capacity points on four cells each, without intervals: an
+observation, not an established trend.}
 \label{tab:capacity}
 \end{table}
 
@@ -555,12 +578,11 @@ two above it. The practical reading is that joint selection is worth trying
 where request count matters, not that it supersedes per-passage verification.
 
 \paragraph{Closed-book control: retrieval's contribution is real but wildly
-uneven.} The numbers above are only meaningful against a baseline of what the
-reader already knows. These are famous public-domain texts, so parametric recall
-is a live confound. We therefore run all 28 cells with \emph{no retrieval at
-all}---the question is asked directly and the model must cite an ID from the
-closed space or abstain---using the same Qwen2.5-14B reader, so the control is
-matched to the grid it qualifies (Table~\ref{tab:closedbook}).
+uneven.} These are famous public-domain texts, so parametric recall is a live confound.
+We therefore run all 28 cells with \emph{no retrieval}---the question asked
+directly, the model citing from the closed space or abstaining---on the same
+Qwen2.5-14B reader, matching the control to the grid it qualifies
+(Table~\ref{tab:closedbook}).
 
 Closed book, the reader attains 0.202 English / 0.150 cross-lingual F1 and
 misattributes roughly \emph{four citations in five} (MAR 0.807 / 0.841).
@@ -743,14 +765,13 @@ native-script text alone. The benchmark measures \emph{attribution, not
 endorsement}: citing a verse correctly is a factual claim about provenance and
 carries no theological position. We follow the datasheet convention of \citet{gebru2021datasheets}.
 
-\paragraph{Availability.} Corpora, all 622 items, the 118 human-verified gold
-items, the harness with its 45 unit tests, every system (A--E2 and the
-closed-book control), and the per-cell JSONL from which every number here is
-read are released together. Released text is public-domain throughout; the three
-corpora whose only English rendering is under copyright ship native-script text
-alone, which is why they require cross-lingual retrieval by construction.
-Machine second-pass annotations are stored apart from human verdicts and
-excluded from adjudication, so no released gold item was promoted by a model.
+\paragraph{Availability.} Corpora, all 622 items, the 118 verified gold items,
+the harness with its 45 tests, every system, and the per-cell JSONL behind every
+number here are released together. Released text is public-domain throughout;
+three corpora ship native-script text alone for copyright reasons, which is why
+they require cross-lingual retrieval by construction. Machine annotations are
+stored apart from human verdicts and excluded from adjudication, so no released
+gold item was promoted by a model.
 
 \section{Conclusion}
 
@@ -760,9 +781,10 @@ carry most weight and NLP resources are thinnest. CANONCITE measures it directly
 over ten corpora, five scripts, and three query-language conditions. Two results are solid. The cross-lingual collapse is a
 \emph{ranking} failure---retrieval finds the gold unit (R@50 0.93--0.99) and
 misranks it (median 7--13)---and a verify-and-repair layer cannot fix what
-retrieval never surfaced. And the residual error, once ranking is fixed,
-concentrates on genuine near neighbours, which is where the remaining difficulty
-lives.
+retrieval never surfaced. And the residual error, once ranking is fixed, is not what we
+expected: joint selection removes implausible citations rather than adjacent
+ones. Adjacency errors are over-represented among what remains---$1.8\times$ a
+directly measured chance rate---but are still a minority (13\%) of it.
 
 Our method result is deliberately stated more narrowly. Joint discriminative exact-ID selection attains the
 lowest misattribution of any system we test, at two LLM calls per item, and is
