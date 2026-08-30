@@ -201,3 +201,10 @@ canoncite/data/reviews/
 
 # machine second-pass verdicts (regenerable; kept out of the human review path)
 canoncite/data/reviews_auto/
+
+# LaTeX build artefacts (the PDF is tracked; intermediates are not)
+paper/acl/*.aux
+paper/acl/*.log
+paper/acl/*.bbl
+paper/acl/*.blg
+paper/acl/*.out
