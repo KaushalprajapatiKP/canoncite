@@ -21,7 +21,7 @@ We claim neither the fixed-ID idea (Ovcharov 2026), nor first religious verse-at
 
 **Status of this release.**  
 
-CANONCITE v1 ships model-drafted items whose gold citations are sampled from, and automatically validated against, the closed corpus ID space. Human verification covers a stratified sample of 120 items, **double-annotated**, with Krippendorff's α-MASI =0.991 on citation sets and 118 items promoted to verified gold (§agreement). All system comparisons are *relative* comparisons over a common, automatically validated label set: the caveat applies identically to every system, so the orderings are unaffected, while absolute values may shift.
+CANONCITE v1 ships model-drafted items whose gold citations are sampled from, and automatically validated against, the closed corpus ID space. Human verification covers a stratified sample of 120 items, **double-annotated**, with Krippendorff's α-MASI =0.991 on citation sets and 118 items promoted to verified gold (§Human Verification). All system comparisons are *relative* comparisons over a common, automatically validated label set: the caveat applies identically to every system, so the orderings are unaffected, while absolute values may shift.
 
 ## Related Work
 
@@ -149,6 +149,10 @@ These are famous public-domain texts, so parametric recall is a live confound. W
 Closed book the reader attains 0.202 English / 0.150 cross-lingual F1 and misattributes *four citations in five* (MAR 0.807/0.841); retrieval adds +0.222/+0.254 F1, so the results are not an aggregate memorisation artefact.
 Per corpus the picture splits sharply. The Bhagavad Gītā is substantially memorised (closed-book English F1 0.497 against 0.310 for the next corpus), so its numbers are partly parametric—a caveat that matters because it is one of our two pilot corpora. Four corpora (Bible, Guru Granth Sahib, Rāmāyaṇa, Constitution) show retrieval adding essentially nothing over memory because retrieval itself fails on them; where retrieval works it is transformative (Thirukkuṛaḷ 0.086 → 0.775, Dhammapada 0.182 → 0.815).
 MAR-exist remains 0.000 unaided: even from memory the reader recalls *real* identifiers and assigns them wrongly rather than inventing them.
+
+## Human Verification
+
+To measure how far the automatic ID-space validation tracks human judgement, we draw a deterministic stratified sample for double annotation: 120 items, allocated proportionally across the seven corpora our annotators can read (English/Hindi/Devanāgarī), stratified by question type, with floors on unanswerable (20) and near-miss-bearing (105) items. Thirukkuṛaḷ, Guru Granth Sahib and Dhammapada are excluded for want of a script-competent annotator—a stated limitation, not a silent omission.
 
 **Coverage and agreement.**  
 
