@@ -1,12 +1,13 @@
-% CANONCITE -- ICON 2026 main-track submission (long paper, 8 pages incl. references).
+% CANONCITE -- ICON 2026 main-track submission (long paper; 8 pages body, references and appendix excluded).
 % Style files: download the ACL 2023 template (acl.sty, acl_natbib.bst) from
 % https://github.com/acl-org/acl-style-files and drop them beside this file,
 % or open the "ACL 2023 Proceedings" template on Overleaf and paste this in.
 % Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
 %
-% \usepackage[review]{acl} <- switch to this if ICON confirms double-blind review.
+% Submitted in [review] mode: anonymous, with line numbers for reviewer reference.
+% Switch to \usepackage[final]{acl} for the camera-ready.
 \documentclass[11pt]{article}
-\usepackage[final]{acl}
+\usepackage[review]{acl}
 
 \usepackage{times}
 \usepackage{latexsym}
@@ -326,8 +327,7 @@ every cross-lingual claim in this section.}
 \paragraph{The English condition, where D looks best on F1.} The control column
 of Table~\ref{tab:ladder} contains the largest system gap in this paper, and it
 does not favour us: on English queries D reaches 0.554 attribution F1 against
-E2's 0.472. We say so plainly, and then explain it, because the explanation is
-the same mechanism this section is about. D cites on 67.8\% of English items to
+E2's 0.472. The explanation is the mechanism this section is about. D cites on 67.8\% of English items to
 E2's 51.1\%; F1 rewards attempting and penalises declining, so a system that
 answers more often collects more correct citations, and more wrong ones. The
 asymmetry is sharper than those two figures suggest: D's citation coverage falls
@@ -358,16 +358,13 @@ BM25 but not distinguishable from hybrid dense retrieval at scale.
 
 \paragraph{Does E2 beat the baselines? A paired bootstrap.} Our margins are close
 enough to measurement noise that point estimates cannot carry the claim, so we
-test them, over \emph{all 18} cross-lingual cells. Two conventions matter and we
-state them rather than let a subset do silent work. First, MAR is undefined when
+test them, over \emph{all 18} cross-lingual cells. Two conventions matter. First, MAR is undefined when
 a system cites nothing: C cited nothing under Hindi queries for Bible and the
 Constitution, so macro comparisons involving C use the 16 cells where both
 systems are defined, while E2-vs-D uses all 18. Second, those same cells are
 perfectly \emph{defined} for wrong-citations-per-item (zero wrong citations over
 $n$ items is $0.000$, the best possible score) so every per-item comparison uses
-all 18. Excluding them would drop the two cells where the baseline scores
-perfectly on the metric we introduced precisely to neutralise selectivity.
-One consequence: each paired margin is computed on the cells common to that
+all 18. One consequence: each paired margin is computed on the cells common to that
 \emph{pair}, so it will not in general equal the difference of the two headline
 means. E2-vs-D uses all 18 and does reconcile ($0.387-0.443=-0.057$); E2-vs-C
 uses 16, on which the means are 0.402 and 0.482 rather than 0.387 and 0.482.
@@ -405,7 +402,7 @@ E2 beats both baselines; under the coverage-corrected metric the cluster
 bootstrap finds nothing significant, while an item-level bootstrap finds E2-vs-D
 significant ($[-0.051,-0.004]$) only by treating items as independent, ignoring
 the clustering corpus and language induce. With 18 clusters the cluster
-bootstrap is the conservative and appropriate choice, and we take its reading:
+bootstrap is the conservative choice:
 \textbf{cross-lingually E2 leads on every point estimate but we cannot establish
 it at this scale.} (English is the exception and is treated above: there the
 per-item margin \emph{is} significant, and D leads on F1.) We
@@ -418,11 +415,9 @@ beat D on cross-lingual MAR. \textbf{On its own terms it passes}: 0.387 versus
 as the paper's result, because the analysis above convinced us the pre-specified
 metric was the wrong one (MAR's denominator counts only citing items, so it
 credits a system for declining) and under the corrected metric the margin is
-directional but not significant. Reporting the pass and stopping would have been
-defensible by the letter of our own protocol and misleading in substance.
+directional but not significant.
 
-\paragraph{Aggregation, and abstention.} Two choices shape every margin, and we
-state both. First, MAR is a per-cell ratio, so averaging cells (macro) weights a
+\paragraph{Aggregation, and abstention.} Two choices shape every margin. First, MAR is a per-cell ratio, so averaging cells (macro) weights a
 12-item Gurmukhi condition like an 80-item Bible one, while pooling over citing
 items (micro) weights by volume. It matters: the E2-versus-D cross-lingual margin
 is $-0.057$ macro but $-0.011$ micro. We report macro, because each
@@ -430,7 +425,7 @@ corpus~$\times$~language condition is an experimental unit of equal interest and
 pooling would let the two largest corpora settle a claim about cross-lingual
 generality, while naming the coincidence that macro is also the
 higher-variance estimator and the only aggregation under which our method result
-clears zero. That is part of why we read conservatively throughout.
+clears zero.
 
 Second, MAR's denominator counts only \emph{citing} items, so a system that
 declines the hard ones can post a low rate without discriminating better, and E2
@@ -443,12 +438,11 @@ items $=0.100$. This pools over cells, so multiplying the macro MAR quoted
 elsewhere by coverage will not reproduce it.
 
 Cross-lingually E2 makes 0.139 wrong citations per item against C's 0.154 and D's
-0.166, at citation coverages of 0.503, 0.448 and 0.556. Note what those coverages
-say: \textbf{C, not E2, is the most selective system}, and C also beats D per
+0.166, at citation coverages of 0.503, 0.448 and 0.556. \textbf{C, not E2, is the most selective system}, and C also beats D per
 item, so selectivity and per-item accuracy do not track each other in the way
 the abstention objection assumes. (C's coverage is 0.448 rather than the 0.519 of
-the 16-cell subset precisely because the two cells where it cited nothing are
-included here, as they must be.) E2 attempts fewer items than D but more than C,
+the 16-cell subset because the two cells where it cited nothing are included
+here.) E2 attempts fewer items than D but more than C,
 and stays ahead of both once the advantage selectivity might confer is removed.
 \paragraph{The correction reorders the baselines.} D leads C on macro MAR (0.443
 vs 0.482) but trails it per item (0.166 vs 0.154): the reproduced Self-RAG/CRAG
@@ -467,8 +461,7 @@ distractor) \emph{rises} as misattribution falls: cross-lingually, C sits at MAR
 0.259/0.121 versus 0.158/0.268). E2 therefore does \emph{not} preferentially resolve near misses; if anything the
 opposite. But the share must be read at its actual size: at NMR 0.129,
 \textbf{87\% of E2's wrong citations do not land on a declared distractor at
-all}. Adjacency is a growing minority of the residual error, not its bulk, and
-we say so rather than describe the residue as concentrating on near neighbours.
+all}. Adjacency is a growing minority of the residual error, not its bulk.
 Two qualifications keep this from being over-read. The distractors are
 \emph{model-declared} at item construction, so NMR measures adjacency as the
 drafting model conceived it, not as a philologist would. A rising
@@ -485,8 +478,7 @@ rerank the candidate pool as the systems do and ask what fraction of the
 distinguishable from it ($z=0.5$), whereas D's 0.115 is $1.6\times$ ($z=2.2$) and
 E2's 0.129 is $\mathbf{1.8\times}$ ($z=2.7$). So adjacency errors are genuinely
 over-represented among the residual errors of the stronger systems, and
-increasingly so as systems improve, while still accounting for a minority of
-them. The null assumes a wrong citation is uniform over non-gold candidates in the
+increasingly so as systems improve. The null assumes a wrong citation is uniform over non-gold candidates in the
 reranked window, and the base rate is measured on pilot conditions and applied
 throughout.
 
@@ -496,7 +488,7 @@ the right neighbourhood is a judgement an 8B reader can partly make, but choosin
 this, E2 has the best abstention accuracy of any system (0.955 cross-lingual,
 0.986 English) and the lowest over-citation rate (0.045), but the highest
 wrong-abstention rate (0.470, same basis): it is the most willing to decline, which is the
-correct bias for citation-critical use and a cost we state rather than hide.
+correct bias for citation-critical use.
 
 \paragraph{Reader capacity, and how much of this is noise.} Swapping the reader
 for Aya-Expanse-8B \cite{aya2024expanse} and gpt-oss-120B, holding retrieval and prompts fixed, the
@@ -538,7 +530,7 @@ verification is an exact lookup against $U$.
 uneven.} These are famous public-domain texts, so parametric recall is a live confound.
 We therefore run all 28 cells with \emph{no retrieval} (the question asked
 directly, the model citing from the closed space or abstaining) on the same
-Qwen2.5-14B reader, matching the control to the grid it qualifies.
+Qwen2.5-14B reader.
 
 Closed book the reader attains 0.202 English / 0.150 cross-lingual F1 and
 misattributes \emph{four citations in five} (MAR 0.807/0.841); retrieval adds
