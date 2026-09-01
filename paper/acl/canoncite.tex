@@ -43,9 +43,9 @@ benchmark for \emph{exact-ID} citation attribution and abstention over ten
 public-domain canonical corpora spanning four traditions and five scripts
 (188{,}557 citable units), every question posed in English, Hindi and the
 corpus's native script. Instantiating a six-system ladder, we show the
-cross-lingual collapse is a \emph{retrieval-ranking} failure: attribution F1
-under non-English queries rises from 0.177 to 0.690 through hybrid and reranked
-retrieval alone, with the gold unit retrieved but ranked at median 7--13. A joint
+cross-lingual collapse is a \emph{retrieval-ranking} failure: on our two pilot corpora,
+attribution F1 under non-English queries rises from 0.177 to 0.690 through
+hybrid and reranked retrieval alone, with the gold unit retrieved but ranked at median 7--13. A joint
 discriminative exact-ID selector then attains the lowest misattribution of any
 system at two LLM calls per item---but a paired bootstrap shows this is
 \emph{directional rather than established}: significance depends on the
@@ -95,10 +95,12 @@ operating over normalised IDs, integrating the fixed-ID existence check
 (\S\ref{sec:metrics}).
 \item \textbf{C3 --- A characterised selection rule (secondary).} A joint
 discriminative exact-ID selector (E2) with the lowest misattribution of any
-system we test, at two LLM calls per item---consistently ahead of both the
-reranking baseline and the reproduced SOTA on point estimates, but not
-establishable at this scale: significance depends on the aggregation and the
-resampling unit. Its advantage is also capacity-gated, reversing below a
+system we test, at two LLM calls per item. It leads on
+misattribution in every condition we measure and is significantly better than the
+SOTA per item on English queries, but it \emph{trails} that baseline on English
+F1 (0.472 vs 0.554), which cites far more often; and cross-lingually the
+advantage is not establishable at this scale, depending on the aggregation and
+the resampling unit. Its advantage is also capacity-gated, reversing below a
 threshold between 8B and 14B. We present E2 as a probe of \emph{why} residual
 attribution errors are hard, not as a system we claim beats the state of the
 art.
@@ -241,7 +243,8 @@ here.
 
 \paragraph{The ladder.} \textbf{A} naive BM25 RAG; \textbf{B} hybrid BM25+dense
 RRF (BGE-M3 \cite{chen2024bgem3} + FAISS); \textbf{C} hybrid plus cross-encoder
-reranking; \textbf{E} a binary per-candidate verify-and-repair layer;
+reranking; \textbf{E} a binary per-candidate verify-and-repair layer, run as an ablation on
+BM25 retrieval only and therefore absent from the system tables;
 \textbf{D} an inference-time reproduction of Self-RAG
 \cite{asai2024selfrag} + CRAG \cite{yan2024crag}, where a CRAG-style evaluator
 labels each passage and a Self-RAG ISSUP critique keeps a citation only if the
@@ -317,6 +320,36 @@ over cells (10 English, 18 cross-lingual). The English column is the control for
 every cross-lingual claim in this section.}
 \label{tab:ladder}
 \end{table}
+
+\paragraph{The English condition, where D looks best on F1.} The control column
+of Table~\ref{tab:ladder} contains the largest system gap in this paper, and it
+does not favour us: on English queries D reaches 0.554 attribution F1 against
+E2's 0.472. We say so plainly, and then explain it, because the explanation is
+the same mechanism this section is about. D cites on 67.8\% of English items to
+E2's 51.1\%; F1 rewards attempting and penalises declining, so a system that
+answers more often collects more correct citations---and more wrong ones. Scored
+per item attempted, the ordering inverts and the margin is the clearest in the
+paper: E2 makes \textbf{0.085} wrong citations per English item against D's
+\textbf{0.153} and C's 0.141, a difference of $-0.068$ with a 95\% interval of
+$[-0.123,-0.017]$ that excludes zero---the only E2-versus-D comparison in this
+work that is significant under the coverage-corrected metric.
+
+This also disposes of a rival reading of our whole method result. If E2's
+advantage were merely a well-tuned decline threshold, it should pay off where the
+reader is \emph{weakest}; instead it is largest and only significant where the
+reader is \emph{strongest}. That is consistent with the capacity pattern reported
+below and inconsistent with abstention-tuning as the explanation.
+
+\paragraph{Reranking's advantage does not replicate at scale.} A second
+disagreement between the pilot corpora and the full grid deserves the same
+treatment. On the pilot, reranking clearly beats plain hybrid retrieval (C 0.690
+vs B 0.626 cross-lingual F1), which is the basis for our claim that reranking is
+the right lever. Across all ten corpora the ordering reverses---B 0.416 vs C
+0.404 F1, and B 0.446 vs C 0.482 MAR---though neither difference is significant
+(F1 $-0.012$, CI $[-0.076,+0.037]$; MAR $+0.036$, CI $[-0.067,+0.125]$). The
+defensible claim is therefore narrower than the pilot suggests: \emph{ranking} is
+the lever, and reranking is one way to fix ranking that is clearly better than
+BM25 but not distinguishable from hybrid dense retrieval at scale.
 
 \paragraph{Does E2 beat the baselines? A paired bootstrap.} Our margins are close
 enough to measurement noise that point estimates cannot carry the claim, so we
@@ -612,7 +645,9 @@ statistics here.}
 
 Items are model-drafted; verification covers 120 of 622 (double-annotated,
 $\alpha$-MASI $=0.991$), so absolute values may shift on the remainder though
-orderings are unaffected, and three scripts are unverified. The 120B column
+orderings are unaffected. Three corpora---Thirukku\d{r}a\d{l}, Guru Granth
+Sahib and Dhammapada---lack a script-competent annotator and are entirely
+unverified. The 120B column
 covers two corpora. All non-English questions are machine translated, and we
 \emph{do not} bound that confound: with no natural-language queries anywhere,
 ``cross-lingual collapse'' and ``translationese collapse'' are not separated by

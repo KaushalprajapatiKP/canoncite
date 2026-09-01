@@ -61,7 +61,8 @@ def _inline(s: str) -> str:
     # cross-references
     s = re.sub(r"\\S\\ref\{sec:([^}]*)\}",
                lambda m: "\u00a7" + SECTIONS.get(m.group(1), m.group(1)), s)
-    s = re.sub(r"Table~\\ref\{tab:([^}]*)\}", r"Table “\1”", s)
+    s = re.sub(r"Table~\\ref\{tab:([^}]*)\}",
+               lambda m: "Table " + str(TABLE_NUM.get(m.group(1), "?")), s)
     s = re.sub(r"\\ref\{[^}]*\}", "", s)
     s = re.sub(r"\\label\{[^}]*\}", "", s)
     # math: strip $...$ and translate the symbols inside
@@ -138,10 +139,14 @@ def _strip_wrapper(line: str, cmd: str, nargs: int) -> str:
 def _table(block: str) -> str:
     """tabular -> markdown table; caption becomes an italic line beneath."""
     cap = ""
-    cm = re.search(r"\\caption\{(.+?)\}\s*\n\s*\\label", block, re.S) or \
-         re.search(r"\\caption\{(.+?)\}", block, re.S)
-    if cm:
-        cap = _inline(" ".join(cm.group(1).split()))
+    ci = block.find("\\caption{")
+    if ci >= 0:
+        k = ci + len("\\caption{"); depth = 1; start = k
+        while k < len(block) and depth:
+            if block[k] == "{": depth += 1
+            elif block[k] == "}": depth -= 1
+            k += 1
+        cap = _inline(" ".join(block[start:k-1].split()))
     body = re.search(r"\\begin\{tabular\}(.*?)\\end\{tabular\}", block, re.S)
     if body:
         inner = body.group(1)
@@ -185,6 +190,7 @@ def _table(block: str) -> str:
 
 
 SECTIONS: dict[str, str] = {}
+TABLE_NUM: dict[str, int] = {}
 
 
 def _load_sections(src: str):
@@ -203,6 +209,8 @@ def convert() -> str:
     _load_bib()
     src = open(TEX, encoding="utf-8").read()
     _load_sections(src)
+    for i, lab in enumerate(re.findall(r'\\label\{tab:([^}]*)\}', src), 1):
+        TABLE_NUM[lab] = i
     src = src.split(r"\begin{document}", 1)[1].split(r"\end{document}")[0]
     src = re.sub(r"(?m)^\s*%.*$", "", src)          # comment lines
     src = re.sub(r"(?<!\\)%.*$", "", src, flags=re.M)  # trailing comments
@@ -225,6 +233,8 @@ def convert() -> str:
         out += ["## Abstract", "", _inline(" ".join(abstract.group(1).split())), ""]
         src = src[abstract.end():]
 
+    # a \paragraph may begin mid-block; make it start its own chunk
+    src = re.sub(r"(?<!\n)(?<!\n\n)\s*(\\paragraph\{)", r"\n\n\1", src)
     for raw in re.split(r"\n\s*\n", src):
         chunk = raw.strip()
         if not chunk or chunk in (r"\maketitle",):
@@ -254,6 +264,9 @@ def convert() -> str:
             out.append("")
             continue
         if chunk.startswith(r"\bibliography"):
+            continue
+        if chunk.strip() == r"\appendix":
+            out += ["", "---", "", "# Appendix", ""]
             continue
         out.append(_inline(" ".join(chunk.split())))
 
