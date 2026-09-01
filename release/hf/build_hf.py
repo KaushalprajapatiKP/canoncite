@@ -14,14 +14,17 @@ upload-ready tree that fixes both, without touching the source release:
     against the corresponding seed records are 18 citation lists in a different
     order, which are set-identical and therefore invisible to the scorer.
   * `reviews/<corpus>/<pseudonym>.jsonl` is new, and is pseudonymised. The
-    on-disk records carry real annotator names; a public release should not,
-    absent explicit consent from each annotator. Pass --real-names to override,
-    which you should only do if every named annotator has agreed.
+    on-disk records carry real annotator names; the public release must not.
+    This is not optional and there is no override flag: annotators are private
+    individuals, one of them is not the repository owner, and a dataset card is
+    a poor place to discover that you published someone's name without asking.
+    The build additionally refuses to finish if any real name survives anywhere
+    in the payload, so a future change to the copying logic cannot leak one
+    silently.
 
 Usage:
   python release/hf/build_hf.py                 # stage to release/hf/payload
   python release/hf/build_hf.py --out /tmp/x    # stage elsewhere
-  python release/hf/build_hf.py --real-names    # keep annotator names (see above)
 
 Uploading is deliberately a separate step; see upload.sh.
 """
@@ -102,6 +105,62 @@ def verify_subsample():
     return n, reorder, substantive
 
 
+def real_names() -> set[str]:
+    """Every annotator name appearing in the on-disk review records.
+
+    Collected from the data rather than hardcoded, so adding an annotator does
+    not silently widen what can leak.
+    """
+    names = set()
+    if not os.path.isdir(REVIEWS):
+        return names
+    for corpus in os.listdir(REVIEWS):
+        d = os.path.join(REVIEWS, corpus)
+        if not os.path.isdir(d):
+            continue
+        for fn in os.listdir(d):
+            if fn.endswith(".jsonl"):
+                for r in read_jsonl(os.path.join(d, fn)):
+                    if r.get("reviewer"):
+                        names.add(r["reviewer"])
+                names.add(os.path.splitext(fn)[0])
+    return {n for n in names if n}
+
+
+# The public code repository is owned by an account whose handle contains a real
+# first name. That URL is intentional and is not a leak, so occurrences inside it
+# are not counted.
+ALLOWED_IN = ("KaushalprajapatiKP",)
+
+
+def assert_no_real_names(payload: str, names: set[str]) -> None:
+    """Fail the build if any annotator name survives anywhere in the payload."""
+    hits = []
+    for dirpath, _, files in os.walk(payload):
+        for fn in files:
+            p = os.path.join(dirpath, fn)
+            try:
+                text = open(p, encoding="utf-8", errors="ignore").read()
+            except OSError:
+                continue
+            for name in names:
+                start = 0
+                while (i := text.find(name, start)) != -1:
+                    window = text[max(0, i - 20):i + len(name) + 20]
+                    if not any(tok in window for tok in ALLOWED_IN):
+                        hits.append((os.path.relpath(p, payload), name))
+                        break
+                    start = i + len(name)
+    if hits:
+        for path, name in sorted(set(hits)):
+            print(f"  LEAK: {name!r} in {path}")
+        raise SystemExit(
+            f"{len(set(hits))} real annotator name(s) found in the payload. "
+            "Refusing to stage a release that would publish them."
+        )
+    print(f"  name check: 0 of {len(names)} real annotator names present in payload")
+
+
 def pseudonymise(rows, mapping):
     out = []
     for r in rows:
@@ -116,8 +175,6 @@ def pseudonymise(rows, mapping):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default=os.path.join(HERE, "payload"))
-    ap.add_argument("--real-names", action="store_true",
-                    help="keep real annotator names (requires each annotator's consent)")
     a = ap.parse_args()
 
     if not os.path.isdir(SRC):
@@ -152,7 +209,7 @@ def main():
             n_v += len(rows)
     print(f"  wrote verified/ ({n_v} items)")
 
-    # 3. review records, pseudonymised unless explicitly overridden
+    # 3. review records, always pseudonymised
     mapping: dict[str, str] = {}
     n_r = 0
     if os.path.isdir(REVIEWS):
@@ -166,16 +223,15 @@ def main():
                 rows = read_jsonl(os.path.join(d, fn))
                 if not rows:
                     continue
-                if not a.real_names:
-                    rows = pseudonymise(rows, mapping)
+                rows = pseudonymise(rows, mapping)
                 label = rows[0].get("reviewer", os.path.splitext(fn)[0])
                 write_jsonl(os.path.join(out, "reviews", corpus, f"{label}.jsonl"), rows)
                 n_r += len(rows)
     if mapping:
-        print(f"  wrote reviews/ ({n_r} records), pseudonymised: "
-              + ", ".join(f"{v}" for v in mapping.values()))
+        print(f"  wrote reviews/ ({n_r} records), pseudonymised as "
+              + ", ".join(sorted(mapping.values())))
     else:
-        print(f"  wrote reviews/ ({n_r} records) WITH REAL NAMES")
+        print(f"  wrote reviews/ ({n_r} records)")
 
     # 4. manifest with the corrected note and fresh checksums
     man = json.load(open(os.path.join(SRC, "manifest.json"), encoding="utf-8"))
@@ -210,6 +266,9 @@ def main():
             print(f"  copied {dst}")
         else:
             print(f"  MISSING {src}")
+
+    # 6. last gate: nothing leaves with a real annotator name in it
+    assert_no_real_names(out, real_names())
 
     total = sum(v["bytes"] for v in files.values())
     print(f"\n  payload: {out}")
