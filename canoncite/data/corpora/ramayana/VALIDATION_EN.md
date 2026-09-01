@@ -133,5 +133,5 @@ Each shows the Baroda id, the source verse number it aligned to, and the verbati
 ## Reproduce
 
 `raw/english/` holds the fetched sources. The alignment script
-(`scratchpad/align2.py` at build time) reads `corpus_index.jsonl` + the cached AshuVj JSON and
+(`canoncite/corpus/align_english_ramayana.py`) reads `corpus_index.jsonl` + the cached AshuVj JSON and
 writes `text_en_supplement.jsonl` deterministically; no network needed to reproduce from cache.

@@ -1,11 +1,18 @@
-import json, re, unicodedata
+"""Align a public-domain English Ramayana rendering onto the frozen corpus IDs.
+
+Paths are resolved relative to the repository so this runs anywhere; set
+CANONCITE_OUT to redirect the stats file.
+"""
+import json, os, re, unicodedata
 from difflib import SequenceMatcher
 from collections import Counter
 
-ROOT="/Volumes/Data/Pralia-labs/shastra - Scripture RAG/canoncite/data/corpora/ramayana"
-ASH=ROOT+"/raw/english/AshuVj_Valmiki_Ramayan_Shlokas.json"
-CORP=ROOT+"/corpus_index.jsonl"
-SCR="/private/tmp/claude-501/-Volumes-Data-Pralia-labs/f2322f97-e15c-411c-8505-2cca93e883bf/scratchpad"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(_HERE, "..", ".."))
+ROOT = os.path.join(REPO, "canoncite", "data", "corpora", "ramayana")
+ASH  = os.path.join(ROOT, "raw", "english", "AshuVj_Valmiki_Ramayan_Shlokas.json")
+CORP = os.path.join(ROOT, "corpus_index.jsonl")
+SCR  = os.environ.get("CANONCITE_OUT", ROOT)
 
 def sig(s):
     if not s: return ''
@@ -101,4 +108,4 @@ print("high:",conf_ct['high']," medium:",conf_ct['medium'])
 for k in range(1,8):
     print(f"  {k} {kn[k]:11s} {covk[k]}/{kid_total[k]} = {100*covk[k]/kid_total[k]:.1f}%")
 json.dump({"total":len(ours_all),"aligned":len(results),"high":conf_ct['high'],"medium":conf_ct['medium'],
-           "per_kanda":{k:[covk[k],kid_total[k]] for k in range(1,8)}}, open(SCR+"/stats.json","w"))
+           "per_kanda":{k:[covk[k],kid_total[k]] for k in range(1,8)}}, open(os.path.join(SCR, "align_stats.json"), "w"))
