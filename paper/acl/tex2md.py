@@ -217,7 +217,7 @@ def convert() -> str:
 
     title = "CANONCITE: A Multilingual, Multi-Tradition Benchmark for Canonical-Citation Attribution and Abstention"
     out = [f"# {title}", "",
-           "> Rendered from `canoncite.tex` by `tex2md.py` — the `.tex` is the "
+           "> Rendered from `canoncite.tex` by `tex2md.py`. The `.tex` is the "
            "submission artefact; regenerate this file rather than editing it.", ""]
 
     # pull tables out first so their internals are not treated as prose
@@ -273,7 +273,7 @@ def convert() -> str:
     # references, from the bib
     out += ["", "## References", ""]
     for key, label in sorted(_CITEKEYS.items(), key=lambda kv: kv[1]):
-        out.append(f"- **{label}** — `{key}`")
+        out.append(f"- **{label}** (`{key}`)")
     text = "\n".join(out)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text + "\n"
