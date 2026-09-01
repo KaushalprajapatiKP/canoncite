@@ -47,9 +47,11 @@ cross-lingual collapse is a \emph{retrieval-ranking} failure: on our two pilot c
 attribution F1 under non-English queries rises from 0.177 to 0.690 through
 hybrid and reranked retrieval alone, with the gold unit retrieved but ranked at median 7--13. A joint
 discriminative exact-ID selector then attains the lowest misattribution of any
-system at two LLM calls per item---but a paired bootstrap shows this is
-\emph{directional rather than established}: significance depends on the
-resampling unit and on whether abstention is removed from the denominator.
+system at two LLM calls per item---but a paired bootstrap places that
+advantage precisely: significant on English queries under the coverage-corrected
+metric, and \emph{directional rather than established} cross-lingually, where it
+depends on the resampling unit and on whether abstention is removed from the
+denominator.
 Contrary to our hypothesis, its gain comes from eliminating \emph{implausible}
 citations rather than resolving near misses. Human verification covers a
 stratified 120-item sample ($\alpha$-MASI $0.991$, on a sample where annotators
@@ -327,7 +329,10 @@ does not favour us: on English queries D reaches 0.554 attribution F1 against
 E2's 0.472. We say so plainly, and then explain it, because the explanation is
 the same mechanism this section is about. D cites on 67.8\% of English items to
 E2's 51.1\%; F1 rewards attempting and penalises declining, so a system that
-answers more often collects more correct citations---and more wrong ones. Scored
+answers more often collects more correct citations---and more wrong ones. The
+asymmetry is sharper than those two figures suggest: D's citation coverage falls
+by 12.3 points from English to cross-lingual queries, E2's by 0.9, so D attempts
+disproportionately more in exactly the condition where attempting pays. Scored
 per item attempted, the ordering inverts and the margin is the clearest in the
 paper: E2 makes \textbf{0.085} wrong citations per English item against D's
 \textbf{0.153} and C's 0.141, a difference of $-0.068$ with a 95\% interval of
@@ -392,15 +397,18 @@ well-defined distribution over per-cell rate averages.}
 \label{tab:boot}
 \end{table}
 
-\textbf{Directional, not robust.} E2 leads on point estimates under both metrics
-(macro MAR 0.387 vs D 0.443, C 0.482; per item 0.139 vs C 0.154, D 0.166), but
+\textbf{Directional, not robust (cross-lingually).} On the 18 cross-lingual cells
+E2 leads on point estimates under both metrics (macro MAR 0.387 vs D 0.443, C
+0.482; per item 0.139 vs C 0.154, D 0.166), but
 significance depends on choices a reader could make differently. Under macro MAR
 E2 beats both baselines; under the coverage-corrected metric the cluster
 bootstrap finds nothing significant, while an item-level bootstrap finds E2-vs-D
 significant ($[-0.051,-0.004]$) only by treating items as independent, ignoring
 the clustering corpus and language induce. With 18 clusters the cluster
 bootstrap is the conservative and appropriate choice, and we take its reading:
-\textbf{E2 is consistently ahead and we cannot establish it at this scale.} We
+\textbf{cross-lingually E2 leads on every point estimate but we cannot establish
+it at this scale.} (English is the exception and is treated above: there the
+per-item margin \emph{is} significant, and D leads on F1.) We
 apply no multiple-comparison correction over these six tests; the E2-vs-D macro
 interval (upper bound $-0.002$) would not survive one.
 
@@ -688,10 +696,12 @@ implausible citations rather than adjacent ones, and near misses stay a minority
 
 Our method result is deliberately narrow. Joint discriminative exact-ID selection
 attains the lowest misattribution of any system we test, at two LLM calls per
-item, and leads on every point estimate---but a paired bootstrap does not
-establish it: significance depends on the aggregation and on whether cells or
-items are resampled, and the ordering reverses below a reader-capacity threshold
-between 8B and 14B. We offer it as a characterised probe of why near-neighbour
+item, and on English queries it makes significantly fewer wrong citations per item
+than the reproduced SOTA ($-0.068$, CI $[-0.123,-0.017]$)---while \emph{trailing}
+that system on English F1 (0.472 vs 0.554), because it cites far less often.
+Cross-lingually the advantage is directional but not established: significance
+depends on the aggregation and on whether cells or items are resampled, and the
+ordering reverses below a reader-capacity threshold between 8B and 14B. We offer it as a characterised probe of why near-neighbour
 attribution is hard, not as a system beating the state of the art. Settling that
 needs more cells; settling how much of the cross-lingual effect is translationese
 needs a natively-authored query set. We release the corpora, items, harness and
@@ -715,8 +725,9 @@ ranges from 9 to 80 citing items across cells), and several differences here are
 smaller than the run-to-run $\sigma\!=\!0.030$ we measure in \S\ref{sec:results}.
 
 \paragraph{Script is not the same as low-resource.} Devanagari queries behave
-like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs
-English 0.472) and Tamil is the \emph{best} cross-lingual condition we measure
+like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs English
+0.472---Hindi edges English by 0.006, far inside the $\sigma\!=\!0.030$ we
+measure, so we read the two as indistinguishable rather than as a reversal) and Tamil is the \emph{best} cross-lingual condition we measure
 (C F1 0.625); what collapses is Gurmukhi and P\={a}li (MAR 0.83, 0.80), both
 single-corpus conditions explained by our own release constraints---Guru Granth
 Sahib is the largest ID space and native-script-only for copyright, and P\={a}li
