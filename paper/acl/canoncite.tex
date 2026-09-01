@@ -41,7 +41,7 @@ than citing nothing. Existing attribution benchmarks score whether a claim is
 supported by a retrieved passage; they cannot detect that the model named
 \textsc{Gita} 2.48 when the source was 2.47. We introduce \textbf{CANONCITE}, a
 benchmark for \emph{exact-ID} citation attribution and abstention over ten
-public-domain canonical corpora spanning four traditions and five scripts
+public-domain canonical corpora spanning four religious traditions and four scripts
 (188{,}557 citable units), every question posed in English, Hindi and the
 corpus's native script. Instantiating a six-system ladder, we show the
 cross-lingual collapse is a \emph{retrieval-ranking} failure: on our two pilot corpora,
@@ -156,7 +156,8 @@ we find the family largely subsumed once ranking is fixed.
 \label{sec:bench}
 
 \paragraph{Corpora.} Ten public-domain canonical texts spanning Hindu, Buddhist,
-Sikh and Christian traditions plus Indian constitutional law, in five scripts. Each corpus is frozen as a
+Sikh and Christian traditions plus Tamil ethical literature and Indian
+constitutional law, in four scripts. Each corpus is frozen as a
 \texttt{corpus\_index.jsonl} keyed by its own canonical identifier scheme
 (\texttt{2.47} for G\={\i}t\={a} chapter.verse; \texttt{Art.~370} for the
 Constitution), giving a closed ID space $U$ per corpus. Only public-domain
@@ -182,7 +183,7 @@ Upani\d{s}ads & 462 & Devan\={a}gar\={\i} \\
 Dhammapada & 423 & Latin (P\={a}li) \\
 Yoga S\={u}tras & 195 & Devan\={a}gar\={\i} \\
 \midrule
-\textbf{Total} & \textbf{188{,}557} & 5 scripts \\
+\textbf{Total} & \textbf{188{,}557} & 4 scripts \\
 \bottomrule
 \end{tabular}
 \caption{The ten frozen corpora. Every unit is addressable by its canonical ID.}
@@ -339,7 +340,7 @@ paper: E2 makes \textbf{0.085} wrong citations per English item against D's
 $[-0.123,-0.017]$ that excludes zero, the only E2-versus-D comparison in this
 work that is significant under the coverage-corrected metric.
 
-This also disposes of a rival reading of our whole method result. If E2's
+This disposes of a rival reading of our method result. If E2's
 advantage were merely a well-tuned decline threshold, it should pay off where the
 reader is \emph{weakest}; instead it is largest and only significant where the
 reader is \emph{strongest}. That is consistent with the capacity pattern reported
@@ -462,7 +463,7 @@ distractor) \emph{rises} as misattribution falls: cross-lingually, C sits at MAR
 opposite. But the share must be read at its actual size: at NMR 0.129,
 \textbf{87\% of E2's wrong citations do not land on a declared distractor at
 all}. Adjacency is a growing minority of the residual error, not its bulk.
-Two qualifications keep this from being over-read. The distractors are
+Two qualifications. The distractors are
 \emph{model-declared} at item construction, so NMR measures adjacency as the
 drafting model conceived it, not as a philologist would. A rising
 \emph{share} is partly arithmetic once the easy errors are gone, though the
@@ -470,8 +471,7 @@ absolute near-miss rate also rises slightly ($0.031 \to 0.042$ on the pilot),
 which is not automatic.
 
 \textbf{Adjacency is over-represented, and we measure by how much.} A share is
-only interpretable against the chance of hitting a distractor at all. We
-therefore compute the base rate directly: over 228 pilot cross-lingual items, we
+only interpretable against chance, so we compute the base rate directly: over 228 pilot cross-lingual items, we
 rerank the candidate pool as the systems do and ask what fraction of the
 \emph{non-gold} slots in the top-8 are declared distractors. It is
 \textbf{0.072}. Against that null, C's NMR of 0.082 is $1.1\times$ chance and not
@@ -479,8 +479,7 @@ distinguishable from it ($z=0.5$), whereas D's 0.115 is $1.6\times$ ($z=2.2$) an
 E2's 0.129 is $\mathbf{1.8\times}$ ($z=2.7$). So adjacency errors are genuinely
 over-represented among the residual errors of the stronger systems, and
 increasingly so as systems improve. The null assumes a wrong citation is uniform over non-gold candidates in the
-reranked window, and the base rate is measured on pilot conditions and applied
-throughout.
+reranked window, and the base rate is measured on pilot conditions.
 
 This also explains the capacity dependence reported below: narrowing to
 the right neighbourhood is a judgement an 8B reader can partly make, but choosing
@@ -515,7 +514,7 @@ call. System D issues $k$ relevance judgements (one per retrieved passage), one
 reader pass, then one to $k$ support critiques, at our $k=8$, between 10 and 17
 calls, with 10 the floor. That is a $5$--$8\times$ difference in \emph{invocations}.
 
-Invocations are the flattering unit, so we report the other one. E2's two calls
+Invocations flatter us, so we report tokens too. E2's two calls
 each carry \emph{all} $k$ candidates, whereas D's per-passage judgements carry
 one each. Estimating prompt tokens from the templates and measured passage
 lengths across five corpora, E2 uses $\approx$1{,}200 tokens per item against
@@ -662,7 +661,7 @@ public-domain translations; where the sole English rendering is under copyright
 we release native-script text alone. The benchmark measures \emph{attribution,
 not endorsement}: citing a verse correctly is a claim about provenance and
 carries no theological position, and no system here is intended to adjudicate
-religious meaning. Because the corpora span four traditions, we report per-corpus
+religious meaning. Because the corpora span four religious traditions, we report per-corpus
 results without ranking traditions against one another, and the weakest
 conditions (Gurmukhi, P\={a}li) reflect our own release and translation
 constraints rather than any property of those texts. We document the release
@@ -699,9 +698,9 @@ needs more cells; settling how much of the cross-lingual effect is translationes
 needs a natively-authored query set. We release the corpora, items, harness and
 all system code.
 
-\section*{Acknowledgements}
-
-\emph{Withheld for review.}
+% Acknowledgements omitted from the anonymous submission (it carried no content
+% under review). RESTORE for the camera-ready, which also gains a 9th content page:
+% \section*{Acknowledgements}
 
 \bibliography{canoncite}
 \bibliographystyle{acl_natbib}
