@@ -42,7 +42,7 @@ supported by a retrieved passage; they cannot detect that the model named
 benchmark for \emph{exact-ID} citation attribution and abstention over ten
 public-domain canonical corpora spanning four traditions and five scripts
 (188{,}557 citable units), every question posed in English, Hindi and the
-corpus's native script. Instantiating a five-system ladder, we show the
+corpus's native script. Instantiating a six-system ladder, we show the
 cross-lingual collapse is a \emph{retrieval-ranking} failure: attribution F1
 under non-English queries rises from 0.177 to 0.690 through hybrid and reranked
 retrieval alone, with the gold unit retrieved but ranked at median 7--13. A joint
@@ -51,7 +51,9 @@ system at two LLM calls per item---but a paired bootstrap shows this is
 \emph{directional rather than established}: significance depends on the
 resampling unit and on whether abstention is removed from the denominator.
 Contrary to our hypothesis, its gain comes from eliminating \emph{implausible}
-citations rather than resolving near misses.
+citations rather than resolving near misses. Human verification covers a
+stratified 120-item sample ($\alpha$-MASI $0.991$, on a sample where annotators
+approved 99\% of items).
 \end{abstract}
 
 \section{Introduction}
@@ -158,6 +160,30 @@ translations are released; where the only English translation is under copyright
 native-script text alone---an honest constraint that makes those corpora
 \emph{require} cross-lingual retrieval.
 
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{Corpus} & \textbf{Units} & \textbf{Script} \\
+\midrule
+Mah\={a}bh\={a}rata     & 73{,}816 & Devan\={a}gar\={\i} \\
+Guru Granth Sahib       & 60{,}555 & Gurmukhi \\
+Bible                   & 31{,}095 & Latin \\
+R\={a}m\={a}ya\d{n}a    & 18{,}761 & Devan\={a}gar\={\i} \\
+Thirukku\d{r}a\d{l}     &  1{,}330 & Tamil \\
+Constitution of India   &  1{,}219 & Latin/Dev. \\
+Bhagavad G\={\i}t\={a}  &     701 & Devan\={a}gar\={\i} \\
+Upani\d{s}ads           &     462 & Devan\={a}gar\={\i} \\
+Dhammapada              &     423 & Latin (P\={a}li) \\
+Yoga S\={u}tras         &     195 & Devan\={a}gar\={\i} \\
+\midrule
+\textbf{Total}          & \textbf{188{,}557} & 5 scripts \\
+\bottomrule
+\end{tabular}
+\caption{The ten frozen corpora. Every unit is addressable by its canonical ID.}
+\label{tab:corpora}
+\end{table}
+
 \paragraph{Items.} 622 items across all ten corpora, each carrying a question, a
 gold answer, gold citation ID(s) validated against $U$, near-miss distractors
 (adjacent same-theme units), a question type, and an ambiguity label. Five
@@ -215,7 +241,8 @@ here.
 
 \paragraph{The ladder.} \textbf{A} naive BM25 RAG; \textbf{B} hybrid BM25+dense
 RRF (BGE-M3 \cite{chen2024bgem3} + FAISS); \textbf{C} hybrid plus cross-encoder
-reranking; \textbf{D} an inference-time reproduction of Self-RAG
+reranking; \textbf{E} a binary per-candidate verify-and-repair layer;
+\textbf{D} an inference-time reproduction of Self-RAG
 \cite{asai2024selfrag} + CRAG \cite{yan2024crag}, where a CRAG-style evaluator
 labels each passage and a Self-RAG ISSUP critique keeps a citation only if the
 passage supports it; and \textbf{E2} (ours), which presents all reranked
@@ -267,6 +294,28 @@ answerable items. Retrieval \emph{finds} the gold unit cross-lingually
 (R@50 $\approx$ 0.93--0.99) but \emph{ranks} it far below the top-5 window.
 The collapse is a ranking failure.}
 \label{tab:recall}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{F1}$\uparrow$} & \multicolumn{2}{c}{\textbf{MAR}$\downarrow$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{System} & en & x-ling & en & x-ling \\
+\midrule
+closed-book       & 0.202 & 0.150 & 0.807 & 0.841 \\
+A naive BM25      & 0.422 & 0.173 & 0.479 & 0.470 \\
+B hybrid          & 0.440 & 0.416 & 0.464 & 0.446 \\
+C rerank          & 0.424 & 0.404 & 0.435 & 0.482 \\
+D Self-RAG/CRAG   & \textbf{0.554} & \textbf{0.440} & 0.344 & 0.443 \\
+E2 (ours)         & 0.472 & 0.423 & \textbf{0.311} & \textbf{0.387} \\
+\bottomrule
+\end{tabular}
+\caption{The full ladder by query condition, all ten corpora, Qwen2.5-14B, macro
+over cells (10 English, 18 cross-lingual). The English column is the control for
+every cross-lingual claim in this section.}
+\label{tab:ladder}
 \end{table}
 
 \paragraph{Does E2 beat the baselines? A paired bootstrap.} Our margins are close
@@ -353,16 +402,22 @@ items $=0.100$. This pools over cells, so multiplying the macro MAR quoted
 elsewhere by coverage will not reproduce it.
 
 Cross-lingually E2 makes 0.139 wrong citations per item against C's 0.154 and D's
-0.166, at coverages 0.503, 0.448 and 0.556. E2 attempts fewer items than D---why
-this metric is the right one---and stays ahead once that advantage is removed.
-\textbf{The correction also reorders the baselines}: D leads C on macro MAR
-(0.443 vs 0.482) but trails it per item (0.166 vs 0.154). The reproduced
-Self-RAG/CRAG pipeline emits more wrong citations per item than the reranking
-baseline it sits on, at five to eight times the calls; its lower MAR is bought by
-citing more often, which the denominator does not charge it for. Neither margin
-is significant, so we claim no ordering---but the disagreement is a result about
-the verify-and-repair family, consistent with E-on-BM25 barely moving
-attribution.
+0.166, at citation coverages of 0.503, 0.448 and 0.556. Note what those coverages
+say: \textbf{C, not E2, is the most selective system}, and C also beats D per
+item---so selectivity and per-item accuracy do not track each other in the way
+the abstention objection assumes. (C's coverage is 0.448 rather than the 0.519 of
+the 16-cell subset precisely because the two cells where it cited nothing are
+included here, as they must be.) E2 attempts fewer items than D but more than C,
+and stays ahead of both once the advantage selectivity might confer is removed.
+\paragraph{The correction reorders the baselines.} D leads C on macro MAR (0.443
+vs 0.482) but trails it per item (0.166 vs 0.154): the reproduced Self-RAG/CRAG
+pipeline emits \emph{more} wrong citations per item than the reranking baseline it
+is built on top of, at five to eight times the LLM calls. Its lower MAR is bought
+by citing more often, which MAR's denominator does not charge it for. Neither
+margin is significant, so we claim no ordering---but the disagreement is a result
+about the verify-and-repair family rather than a curiosity about metrics, and it
+corroborates the E-on-BM25 ablation: once ranking is fixed, per-passage
+verification adds cost without reliably adding accuracy.
 
 \paragraph{The mechanism is not the one we hypothesised.} The near-miss rate says
 so. NMR---the share of wrong citations landing on a declared near-miss
@@ -373,7 +428,7 @@ opposite. But the share must be read at its actual size: at NMR 0.129,
 \textbf{87\% of E2's wrong citations do not land on a declared distractor at
 all}. Adjacency is a growing minority of the residual error, not its bulk, and
 we say so rather than describe the residue as concentrating on near neighbours.
-Three qualifications keep this from being over-read. The distractors are
+Two qualifications keep this from being over-read. The distractors are
 \emph{model-declared} at item construction, so NMR measures adjacency as the
 drafting model conceived it, not as a philologist would. A rising
 \emph{share} is partly arithmetic once the easy errors are gone, though the
@@ -402,19 +457,11 @@ this, E2 has the best abstention accuracy of any system (0.955 cross-lingual,
 wrong-abstention rate (0.470, same basis)---it is the most willing to decline, which is the
 correct bias for citation-critical use and a cost we state rather than hide.
 
-\paragraph{Script is not the same as low-resource.} Devanagari queries behave
-like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs
-English 0.472) and Tamil is the \emph{best} cross-lingual condition we measure
-(C F1 0.625); what collapses is Gurmukhi and P\={a}li (MAR 0.83, 0.80), both
-single-corpus conditions explained by our own release constraints---Guru Granth
-Sahib is the largest ID space and native-script-only for copyright, and P\={a}li
-is the one language IndicTrans2 does not cover.
-
 \paragraph{Reader capacity, and how much of this is noise.} Swapping the reader
-for Aya-Expanse-8B and gpt-oss-120B, holding retrieval and prompts fixed, the
+for Aya-Expanse-8B \cite{aya2024expanse} and gpt-oss-120B, holding retrieval and prompts fixed, the
 E2-minus-D cross-lingual MAR margin on matched pilot cells is $-0.013$, $-0.027$
-and $-0.081$ at 8B, 14B and 120B; on the full 28-cell grid the 8B ordering
-reverses outright (E2 0.604 vs D 0.577). Three points of four cells each, without
+and $-0.081$ at 8B, 14B and 120B; over the 18 cross-lingual cells of the full grid the
+8B ordering reverses outright (E2 0.604 vs D 0.577). Three points of four cells each, without
 intervals: a direction, not an established trend.
 
 To ask whether the 8B reversal is real, we replicated \emph{both} systems at that
@@ -575,6 +622,17 @@ recovers to English-level attribution once ranking is fixed---neither of which i
 what degraded query fluency would predict. A natively-authored query set for one
 corpus would settle it and is the most valuable future addition.
 
+\paragraph{Ethics.} All corpora are public domain and we release only
+public-domain translations; where the sole English rendering is under copyright
+we release native-script text alone. The benchmark measures \emph{attribution,
+not endorsement}: citing a verse correctly is a claim about provenance and
+carries no theological position, and no system here is intended to adjudicate
+religious meaning. Because the corpora span four traditions, we report per-corpus
+results without ranking traditions against one another, and the weakest
+conditions (Gurmukhi, P\={a}li) reflect our own release and translation
+constraints rather than any property of those texts. We document the release
+following the datasheet convention of \citet{gebru2021datasheets}.
+
 \paragraph{Availability and reproducibility.} Retrieval is local and
 deterministic; reader temperature, prompts and $k$ are fixed and logged. Every
 cell is checkpointed to JSONL and every number here is read from those files by
@@ -610,5 +668,98 @@ all system code.
 
 \bibliography{canoncite}
 \bibliographystyle{acl_natbib}
+
+\appendix
+
+\section{Per-corpus and per-script results}
+\label{app:percorpus}
+
+These tables are reported for auditability. We draw no per-corpus or per-script
+conclusions from them: cell-level uncertainty is not uniform (MAR's denominator
+ranges from 9 to 80 citing items across cells), and several differences here are
+smaller than the run-to-run $\sigma\!=\!0.030$ we measure in \S\ref{sec:results}.
+
+\paragraph{Script is not the same as low-resource.} Devanagari queries behave
+like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs
+English 0.472) and Tamil is the \emph{best} cross-lingual condition we measure
+(C F1 0.625); what collapses is Gurmukhi and P\={a}li (MAR 0.83, 0.80), both
+single-corpus conditions explained by our own release constraints---Guru Granth
+Sahib is the largest ID space and native-script-only for copyright, and P\={a}li
+is the one language IndicTrans2 does not cover.
+
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Corpus} & \textbf{C} & \textbf{D} & \textbf{E2} \\
+\midrule
+Bhagavad G\={\i}t\={a}  & 0.272 & 0.200 & 0.166 \\
+Yoga S\={u}tras         & 0.233 & 0.158 & 0.137 \\
+Upani\d{s}ads           & 0.340 & 0.427 & 0.125 \\
+Bible                   & --    & 0.316 & 0.256 \\
+Constitution of India   & --    & 0.370 & 0.265 \\
+Mah\={a}bh\={a}rata     & 0.375 & 0.472 & 0.312 \\
+Dhammapada              & 0.637 & 0.487 & 0.449 \\
+Thirukku\d{r}a\d{l}     & 0.317 & 0.225 & 0.282 \\
+Guru Granth Sahib       & 0.841 & 0.833 & 0.838 \\
+R\={a}m\={a}ya\d{n}a    & 0.839 & 0.844 & 0.909 \\
+\midrule
+\textbf{All (18 cells)} & 0.482 & 0.443 & 0.387 \\
+\bottomrule
+\end{tabular}
+\caption{Cross-lingual MAR$\downarrow$ per corpus, Qwen2.5-14B. Blank entries are
+cells where C cited nothing, leaving MAR undefined.}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Query script} & \textbf{cells} & \textbf{A F1} & \textbf{E2 F1} & \textbf{E2 MAR} \\
+\midrule
+Latin (English)             & 10 & 0.422 & 0.472 & 0.311 \\
+Devan\={a}gar\={\i} (Hindi) & 10 & 0.166 & 0.477 & 0.336 \\
+Devan\={a}gar\={\i} (Skt)   &  5 & 0.194 & 0.392 & 0.317 \\
+Tamil                       &  1 & 0.100 & 0.579 & 0.383 \\
+Gurmukhi                    &  1 & 0.222 & 0.167 & 0.833 \\
+Latin (P\={a}li)            &  1 & 0.167 & 0.142 & 0.800 \\
+\bottomrule
+\end{tabular}
+\caption{By query script. Single-corpus conditions ($n=1$ cell) are not
+script-level claims.}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \textbf{CB} & \textbf{A} & \textbf{C} & \textbf{E2} \\
+\midrule
+English F1$\uparrow$          & 0.202 & 0.422 & 0.424 & 0.472 \\
+English MAR$\downarrow$       & 0.807 & 0.479 & 0.435 & 0.311 \\
+Cross-ling.\ F1$\uparrow$     & 0.150 & 0.173 & 0.404 & 0.423 \\
+Cross-ling.\ MAR$\downarrow$  & 0.841 & 0.470 & 0.482 & 0.387 \\
+\bottomrule
+\end{tabular}
+\caption{Closed-book control (CB, no retrieval) against the ladder, all ten
+corpora, Qwen2.5-14B. CB is the mean of two identical-configuration runs.}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Reader} & \textbf{C} & \textbf{E2} & \textbf{D} & \textbf{E2$-$D} \\
+\midrule
+Aya-Expanse-8B & 0.441 & 0.315 & 0.328 & $-0.013$ \\
+Qwen2.5-14B    & 0.253 & 0.152 & 0.179 & $-0.027$ \\
+gpt-oss-120B   & 0.313 & 0.121 & 0.202 & $-0.081$ \\
+\bottomrule
+\end{tabular}
+\caption{Cross-lingual MAR$\downarrow$ on matched pilot cells (G\={\i}t\={a} +
+Yoga S\={u}tras $\times$ hi/sa; 4 cells, $n=264$). Three points of four cells
+each, without intervals.}
+\end{table}
 
 \end{document}

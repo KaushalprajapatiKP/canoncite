@@ -4,7 +4,7 @@
 
 ## Abstract
 
-When a model cites a canonical source—a scripture verse, a constitutional article—citing the *wrong* unit is a distinct and more damaging failure than citing nothing. Existing attribution benchmarks score whether a claim is supported by a retrieved passage; they cannot detect that the model named Gita 2.48 when the source was 2.47. We introduce **CANONCITE**, a benchmark for *exact-ID* citation attribution and abstention over ten public-domain canonical corpora spanning four traditions and five scripts (188,557 citable units), every question posed in English, Hindi and the corpus's native script. Instantiating a five-system ladder, we show the cross-lingual collapse is a *retrieval-ranking* failure: attribution F1 under non-English queries rises from 0.177 to 0.690 through hybrid and reranked retrieval alone, with the gold unit retrieved but ranked at median 7–13. A joint discriminative exact-ID selector then attains the lowest misattribution of any system at two LLM calls per item—but a paired bootstrap shows this is *directional rather than established*: significance depends on the resampling unit and on whether abstention is removed from the denominator. Contrary to our hypothesis, its gain comes from eliminating *implausible* citations rather than resolving near misses.
+When a model cites a canonical source—a scripture verse, a constitutional article—citing the *wrong* unit is a distinct and more damaging failure than citing nothing. Existing attribution benchmarks score whether a claim is supported by a retrieved passage; they cannot detect that the model named Gita 2.48 when the source was 2.47. We introduce **CANONCITE**, a benchmark for *exact-ID* citation attribution and abstention over ten public-domain canonical corpora spanning four traditions and five scripts (188,557 citable units), every question posed in English, Hindi and the corpus's native script. Instantiating a six-system ladder, we show the cross-lingual collapse is a *retrieval-ranking* failure: attribution F1 under non-English queries rises from 0.177 to 0.690 through hybrid and reranked retrieval alone, with the gold unit retrieved but ranked at median 7–13. A joint discriminative exact-ID selector then attains the lowest misattribution of any system at two LLM calls per item—but a paired bootstrap shows this is *directional rather than established*: significance depends on the resampling unit and on whether abstention is removed from the denominator. Contrary to our hypothesis, its gain comes from eliminating *implausible* citations rather than resolving near misses. Human verification covers a stratified 120-item sample (α-MASI 0.991, on a sample where annotators approved 99% of items).
 
 ## Introduction
 
@@ -47,6 +47,22 @@ CiteFix (Maheshwari 2025), VeriCite (Qian 2025), RARR (Gao 2023), Self-RAG (Asai
 
 Ten public-domain canonical texts spanning Hindu, Buddhist, Sikh and Christian traditions plus Indian constitutional law, in five scripts. Each corpus is frozen as a `corpus_index.jsonl` keyed by its own canonical identifier scheme (`2.47` for Gītā chapter.verse; `Art.~370` for the Constitution), giving a closed ID space U per corpus. Only public-domain translations are released; where the only English translation is under copyright (Rāmāyaṇa, Mahābhārata, Guru Granth Sahib), we release the native-script text alone—an honest constraint that makes those corpora *require* cross-lingual retrieval.
 
+| **Corpus** | **Units** | **Script** |
+|---|---|---|
+| Mahābhārata | 73,816 | Devanāgarī |
+| Guru Granth Sahib | 60,555 | Gurmukhi |
+| Bible | 31,095 | Latin |
+| Rāmāyaṇa | 18,761 | Devanāgarī |
+| Thirukkuṛaḷ | 1,330 | Tamil |
+| Constitution of India | 1,219 | Latin/Dev. |
+| Bhagavad Gītā | 701 | Devanāgarī |
+| Upaniṣads | 462 | Devanāgarī |
+| Dhammapada | 423 | Latin (Pāli) |
+| Yoga Sūtras | 195 | Devanāgarī |
+| **Total** | **188,557** | 5 scripts |
+
+*The ten frozen corpora. Every unit is addressable by its canonical ID.*
+
 **Items.**  
 
 622 items across all ten corpora, each carrying a question, a gold answer, gold citation ID(s) validated against U, near-miss distractors (adjacent same-theme units), a question type, and an ambiguity label. Five question types—*factual*, *retrieval*, *conceptual*, *interpretive*, *unanswerable*—exercise different failure modes; unanswerable items carry `must_abstain` and no gold citation, so abstention is measured rather than assumed. Every item is fully trilingual: Hindi and native-script questions were produced with IndicTrans2 (Gala 2023) (Pāli by prompted generation, which IndicTrans2 does not cover). Gold citations are language-independent, so the three language conditions are matched by construction—the comparison isolates query language and nothing else.
@@ -73,7 +89,7 @@ MAR-exist is 0.000 in every run we report: models cite *real* units incorrectly 
 
 **The ladder.**  
 
-**A** naive BM25 RAG; **B** hybrid BM25+dense RRF (BGE-M3 (Chen 2024) + FAISS); **C** hybrid plus cross-encoder reranking; **D** an inference-time reproduction of Self-RAG (Asai 2024) + CRAG (Yan 2024), where a CRAG-style evaluator labels each passage and a Self-RAG ISSUP critique keeps a citation only if the passage supports it; and **E2** (ours), which presents all reranked candidates *jointly* and forces one exact-source choice or abstention—one LLM call rather than up to k. Grid: systems × 10 corpora × query language (en/hi/native) = 28 cells per system. Primary reader Qwen2.5-14B-Instruct (Team 2024), self-hosted; all prompts, temperatures and k fixed and logged. We pre-committed to a decision gate: *E2 must beat D on cross-lingual MAR*.
+**A** naive BM25 RAG; **B** hybrid BM25+dense RRF (BGE-M3 (Chen 2024) + FAISS); **C** hybrid plus cross-encoder reranking; **E** a binary per-candidate verify-and-repair layer; **D** an inference-time reproduction of Self-RAG (Asai 2024) + CRAG (Yan 2024), where a CRAG-style evaluator labels each passage and a Self-RAG ISSUP critique keeps a citation only if the passage supports it; and **E2** (ours), which presents all reranked candidates *jointly* and forces one exact-source choice or abstention—one LLM call rather than up to k. Grid: systems × 10 corpora × query language (en/hi/native) = 28 cells per system. Primary reader Qwen2.5-14B-Instruct (Team 2024), self-hosted; all prompts, temperatures and k fixed and logged. We pre-committed to a decision gate: *E2 must beat D on cross-lingual MAR*.
 
 **The collapse is a ranking failure.**  
 
@@ -90,6 +106,18 @@ Table “recall” isolates the mechanism. Dense hybrid retrieval *finds* the go
 | Yoga S. · sa | **0.227** | 0.727 | 0.955 | **13** |
 
 *Recall@k of the gold unit under hybrid BM25+BGE-M3 retrieval, answerable items. Retrieval *finds* the gold unit cross-lingually (R@50 ≈ 0.93–0.99) but *ranks* it far below the top-5 window. The collapse is a ranking failure.*
+
+|  | **F1**↑ | **MAR**↓ |  |  |
+|---|---|---|---|---|
+| **System** | en | x-ling | en | x-ling |
+| closed-book | 0.202 | 0.150 | 0.807 | 0.841 |
+| A naive BM25 | 0.422 | 0.173 | 0.479 | 0.470 |
+| B hybrid | 0.440 | 0.416 | 0.464 | 0.446 |
+| C rerank | 0.424 | 0.404 | 0.435 | 0.482 |
+| D Self-RAG/CRAG | **0.554** | **0.440** | 0.344 | 0.443 |
+| E2 (ours) | 0.472 | 0.423 | **0.311** | **0.387** |
+
+*The full ladder by query condition, all ten corpora, Qwen2.5-14B, macro over cells (10 English, 18 cross-lingual). The English column is the control for every cross-lingual claim in this section.*
 
 **Does E2 beat the baselines? A paired bootstrap.**  
 
@@ -120,21 +148,17 @@ We pre-specified that E2 must beat D on cross-lingual MAR. **On its own terms it
 
 Two choices shape every margin, and we state both. First, MAR is a per-cell ratio, so averaging cells (macro) weights a 12-item Gurmukhi condition like an 80-item Bible one, while pooling over citing items (micro) weights by volume. It matters: the E2-versus-D cross-lingual margin is -0.057 macro but -0.011 micro. We report macro, because each corpus~×~language condition is an experimental unit of equal interest and pooling would let the two largest corpora settle a claim about cross-lingual generality—while naming the coincidence that macro is also the higher-variance estimator and the only aggregation under which our method result clears zero. That is part of why we read conservatively throughout.
 Second, MAR's denominator counts only *citing* items, so a system that declines the hard ones can post a low rate without discriminating better—and E2 has the highest wrong-abstention rate of the three (0.470 vs D 0.409, C 0.410). We therefore also report wrong citations per *item attempted*, sum_c textMAR_c · n^textcite_c / sum_c n_c, whose denominator counts all items including declined ones. Worked example (Yoga Sūtras Hindi): n=50, n^textcite=38, textMAR=0.132, so 5 wrong citations over 50 items =0.100. This pools over cells, so multiplying the macro MAR quoted elsewhere by coverage will not reproduce it.
-Cross-lingually E2 makes 0.139 wrong citations per item against C's 0.154 and D's 0.166, at coverages 0.503, 0.448 and 0.556. E2 attempts fewer items than D—why this metric is the right one—and stays ahead once that advantage is removed. **The correction also reorders the baselines**: D leads C on macro MAR (0.443 vs 0.482) but trails it per item (0.166 vs 0.154). The reproduced Self-RAG/CRAG pipeline emits more wrong citations per item than the reranking baseline it sits on, at five to eight times the calls; its lower MAR is bought by citing more often, which the denominator does not charge it for. Neither margin is significant, so we claim no ordering—but the disagreement is a result about the verify-and-repair family, consistent with E-on-BM25 barely moving attribution.
+Cross-lingually E2 makes 0.139 wrong citations per item against C's 0.154 and D's 0.166, at citation coverages of 0.503, 0.448 and 0.556. Note what those coverages say: **C, not E2, is the most selective system**, and C also beats D per item—so selectivity and per-item accuracy do not track each other in the way the abstention objection assumes. (C's coverage is 0.448 rather than the 0.519 of the 16-cell subset precisely because the two cells where it cited nothing are included here, as they must be.) E2 attempts fewer items than D but more than C, and stays ahead of both once the advantage selectivity might confer is removed. \paragraph{The correction reorders the baselines.} D leads C on macro MAR (0.443 vs 0.482) but trails it per item (0.166 vs 0.154): the reproduced Self-RAG/CRAG pipeline emits *more* wrong citations per item than the reranking baseline it is built on top of, at five to eight times the LLM calls. Its lower MAR is bought by citing more often, which MAR's denominator does not charge it for. Neither margin is significant, so we claim no ordering—but the disagreement is a result about the verify-and-repair family rather than a curiosity about metrics, and it corroborates the E-on-BM25 ablation: once ranking is fixed, per-passage verification adds cost without reliably adding accuracy.
 
 **The mechanism is not the one we hypothesised.**  
 
-The near-miss rate says so. NMR—the share of wrong citations landing on a declared near-miss distractor—*rises* as misattribution falls: cross-lingually, C sits at MAR 0.482 with NMR 0.082, E2 at MAR 0.387 with NMR 0.129 (on the pilot corpora, 0.259/0.121 versus 0.158/0.268). E2 therefore does *not* preferentially resolve near misses; if anything the opposite. But the share must be read at its actual size: at NMR 0.129, **87% of E2's wrong citations do not land on a declared distractor at all**. Adjacency is a growing minority of the residual error, not its bulk, and we say so rather than describe the residue as concentrating on near neighbours. Three qualifications keep this from being over-read. The distractors are *model-declared* at item construction, so NMR measures adjacency as the drafting model conceived it, not as a philologist would. A rising *share* is partly arithmetic once the easy errors are gone, though the absolute near-miss rate also rises slightly (0.031 → 0.042 on the pilot), which is not automatic.
+The near-miss rate says so. NMR—the share of wrong citations landing on a declared near-miss distractor—*rises* as misattribution falls: cross-lingually, C sits at MAR 0.482 with NMR 0.082, E2 at MAR 0.387 with NMR 0.129 (on the pilot corpora, 0.259/0.121 versus 0.158/0.268). E2 therefore does *not* preferentially resolve near misses; if anything the opposite. But the share must be read at its actual size: at NMR 0.129, **87% of E2's wrong citations do not land on a declared distractor at all**. Adjacency is a growing minority of the residual error, not its bulk, and we say so rather than describe the residue as concentrating on near neighbours. Two qualifications keep this from being over-read. The distractors are *model-declared* at item construction, so NMR measures adjacency as the drafting model conceived it, not as a philologist would. A rising *share* is partly arithmetic once the easy errors are gone, though the absolute near-miss rate also rises slightly (0.031 → 0.042 on the pilot), which is not automatic.
 **Adjacency is over-represented, and we measure by how much.** A share is only interpretable against the chance of hitting a distractor at all. We therefore compute the base rate directly: over 228 pilot cross-lingual items, we rerank the candidate pool as the systems do and ask what fraction of the *non-gold* slots in the top-8 are declared distractors. It is **0.072**. Against that null, C's NMR of 0.082 is 1.1× chance and not distinguishable from it (z=0.5), whereas D's 0.115 is 1.6× (z=2.2) and E2's 0.129 is **1.8×** (z=2.7). So adjacency errors are genuinely over-represented among the residual errors of the stronger systems, and increasingly so as systems improve—while still accounting for a minority of them. The null assumes a wrong citation is uniform over non-gold candidates in the reranked window, and the base rate is measured on pilot conditions and applied throughout.
 This also explains the capacity dependence reported below: narrowing to the right neighbourhood is a judgement an 8B reader can partly make, but choosing *within* that neighbourhood is what scales with capacity. Consistent with this, E2 has the best abstention accuracy of any system (0.955 cross-lingual, 0.986 English) and the lowest over-citation rate (0.045), but the highest wrong-abstention rate (0.470, same basis)—it is the most willing to decline, which is the correct bias for citation-critical use and a cost we state rather than hide.
 
-**Script is not the same as low-resource.**  
-
-Devanagari queries behave like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs English 0.472) and Tamil is the *best* cross-lingual condition we measure (C F1 0.625); what collapses is Gurmukhi and Pāli (MAR 0.83, 0.80), both single-corpus conditions explained by our own release constraints—Guru Granth Sahib is the largest ID space and native-script-only for copyright, and Pāli is the one language IndicTrans2 does not cover.
-
 **Reader capacity, and how much of this is noise.**  
 
-Swapping the reader for Aya-Expanse-8B and gpt-oss-120B, holding retrieval and prompts fixed, the E2-minus-D cross-lingual MAR margin on matched pilot cells is -0.013, -0.027 and -0.081 at 8B, 14B and 120B; on the full 28-cell grid the 8B ordering reverses outright (E2 0.604 vs D 0.577). Three points of four cells each, without intervals: a direction, not an established trend.
+Swapping the reader for Aya-Expanse-8B (AI 2024) and gpt-oss-120B, holding retrieval and prompts fixed, the E2-minus-D cross-lingual MAR margin on matched pilot cells is -0.013, -0.027 and -0.081 at 8B, 14B and 120B; over the 18 cross-lingual cells of the full grid the 8B ordering reverses outright (E2 0.604 vs D 0.577). Three points of four cells each, without intervals: a direction, not an established trend.
 To ask whether the 8B reversal is real, we replicated *both* systems at that reader end to end—all 28 cells each, identical configuration and quantisation. Aggregates are stable across runs (E2 0.604→0.606, D 0.577→0.583) with per-cell σ=0.030 for E2 and 0.019 for D, giving a paired 95% band of ±0.017 on an 18-cell mean with nothing assumed. The reversal clears it: the E2-minus-D margin is +0.026 and +0.023 across the two runs. One transferable caution: an earlier estimate of ours taken from the closed-book control gave σ=0.077, nearly three times either figure—a retrieval-free control abstains far more, and abstention moves MAR discontinuously. Noise should be measured on the system being reported.
 
 **Inference cost, in calls and in tokens.**  
@@ -188,6 +212,10 @@ One component is *unmeasured* rather than partial, and we name it. Validating th
 
 Items are model-drafted; verification covers 120 of 622 (double-annotated, α-MASI =0.991), so absolute values may shift on the remainder though orderings are unaffected, and three scripts are unverified. The 120B column covers two corpora. All non-English questions are machine translated, and we *do not* bound that confound: with no natural-language queries anywhere, “cross-lingual collapse” and “translationese collapse” are not separated by our design. Two observations bear on it without resolving it—the collapse is localised to ranking rather than reading (Table “recall”), and Devanagari recovers to English-level attribution once ranking is fixed—neither of which is what degraded query fluency would predict. A natively-authored query set for one corpus would settle it and is the most valuable future addition.
 
+**Ethics.**  
+
+All corpora are public domain and we release only public-domain translations; where the sole English rendering is under copyright we release native-script text alone. The benchmark measures *attribution, not endorsement*: citing a verse correctly is a claim about provenance and carries no theological position, and no system here is intended to adjudicate religious meaning. Because the corpora span four traditions, we report per-corpus results without ranking traditions against one another, and the weakest conditions (Gurmukhi, Pāli) reflect our own release and translation constraints rather than any property of those texts. We document the release following the datasheet convention of Gebru 2021.
+
 **Availability and reproducibility.**  
 
 Retrieval is local and deterministic; reader temperature, prompts and k are fixed and logged. Every cell is checkpointed to JSONL and every number here is read from those files by the harness rather than transcribed. Corpora, items, the 118 verified gold items, the harness with its 45 tests and all systems are released together; released text is public-domain, with three corpora shipping native script alone for copyright. Machine annotations are stored apart from human verdicts and excluded from adjudication, so no released gold item was promoted by a model.
@@ -200,6 +228,59 @@ Our method result is deliberately narrow. Joint discriminative exact-ID selectio
 ## Acknowledgements
 
 *Withheld for review.*
+\appendix
+
+## Per-corpus and per-script results
+
+These tables are reported for auditability. We draw no per-corpus or per-script conclusions from them: cell-level uncertainty is not uniform (MAR's denominator ranges from 9 to 80 citing items across cells), and several differences here are smaller than the run-to-run σ=0.030 we measure in §Systems and Results.
+
+**Script is not the same as low-resource.**  
+
+Devanagari queries behave like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs English 0.472) and Tamil is the *best* cross-lingual condition we measure (C F1 0.625); what collapses is Gurmukhi and Pāli (MAR 0.83, 0.80), both single-corpus conditions explained by our own release constraints—Guru Granth Sahib is the largest ID space and native-script-only for copyright, and Pāli is the one language IndicTrans2 does not cover.
+
+| **Corpus** | **C** | **D** | **E2** |
+|---|---|---|---|
+| Bhagavad Gītā | 0.272 | 0.200 | 0.166 |
+| Yoga Sūtras | 0.233 | 0.158 | 0.137 |
+| Upaniṣads | 0.340 | 0.427 | 0.125 |
+| Bible | – | 0.316 | 0.256 |
+| Constitution of India | – | 0.370 | 0.265 |
+| Mahābhārata | 0.375 | 0.472 | 0.312 |
+| Dhammapada | 0.637 | 0.487 | 0.449 |
+| Thirukkuṛaḷ | 0.317 | 0.225 | 0.282 |
+| Guru Granth Sahib | 0.841 | 0.833 | 0.838 |
+| Rāmāyaṇa | 0.839 | 0.844 | 0.909 |
+| **All (18 cells)** | 0.482 | 0.443 | 0.387 |
+
+*Cross-lingual MAR↓ per corpus, Qwen2.5-14B. Blank entries are cells where C cited nothing, leaving MAR undefined.*
+
+| **Query script** | **cells** | **A F1** | **E2 F1** | **E2 MAR** |
+|---|---|---|---|---|
+| Latin (English) | 10 | 0.422 | 0.472 | 0.311 |
+| Devanāgarī (Hindi) | 10 | 0.166 | 0.477 | 0.336 |
+| Devanāgarī (Skt) | 5 | 0.194 | 0.392 | 0.317 |
+| Tamil | 1 | 0.100 | 0.579 | 0.383 |
+| Gurmukhi | 1 | 0.222 | 0.167 | 0.833 |
+| Latin (Pāli) | 1 | 0.167 | 0.142 | 0.800 |
+
+*By query script. Single-corpus conditions (n=1 cell) are not script-level claims.*
+
+|  | **CB** | **A** | **C** | **E2** |
+|---|---|---|---|---|
+| English F1↑ | 0.202 | 0.422 | 0.424 | 0.472 |
+| English MAR↓ | 0.807 | 0.479 | 0.435 | 0.311 |
+| Cross-ling. F1↑ | 0.150 | 0.173 | 0.404 | 0.423 |
+| Cross-ling. MAR↓ | 0.841 | 0.470 | 0.482 | 0.387 |
+
+*Closed-book control (CB, no retrieval) against the ladder, all ten corpora, Qwen2.5-14B. CB is the mean of two identical-configuration runs.*
+
+| **Reader** | **C** | **E2** | **D** | **E2-D** |
+|---|---|---|---|---|
+| Aya-Expanse-8B | 0.441 | 0.315 | 0.328 | -0.013 |
+| Qwen2.5-14B | 0.253 | 0.152 | 0.179 | -0.027 |
+| gpt-oss-120B | 0.313 | 0.121 | 0.202 | -0.081 |
+
+*Cross-lingual MAR↓ on matched pilot cells (G\={\i*
 
 ## References
 
