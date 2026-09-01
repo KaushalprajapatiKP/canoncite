@@ -252,7 +252,7 @@ These tables are reported for auditability. We draw no per-corpus or per-script 
 
 **Script is not the same as low-resource.**  
 
-Devanagari queries behave like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, vs English 0.472—Hindi edges English by 0.006, far inside the σ=0.030 we measure, so we read the two as indistinguishable rather than as a reversal) and Tamil is the *best* cross-lingual condition we measure (C F1 0.625); what collapses is Gurmukhi and Pāli (MAR 0.83, 0.80), both single-corpus conditions explained by our own release constraints—Guru Granth Sahib is the largest ID space and native-script-only for copyright, and Pāli is the one language IndicTrans2 does not cover.
+Devanagari queries behave like English once ranking is fixed (E2 F1 0.477 Hindi, 0.392 Sanskrit, against English's 0.472). Hindi's 0.006 edge over English is far inside the σ=0.030 we measure, so we read those two conditions as indistinguishable rather than as a reversal of the collapse and Tamil is the *best* cross-lingual condition we measure (C F1 0.625); what collapses is Gurmukhi and Pāli (MAR 0.83, 0.80), both single-corpus conditions explained by our own release constraints—Guru Granth Sahib is the largest ID space and native-script-only for copyright, and Pāli is the one language IndicTrans2 does not cover.
 
 | **Corpus** | **C** | **D** | **E2** |
 |---|---|---|---|
