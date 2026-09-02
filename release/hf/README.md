@@ -166,4 +166,6 @@ dataset:
 ## Code
 
 The harness, the system implementations and the scoring code are at
+[github.com/pralia-labs/canoncite](https://github.com/pralia-labs/canoncite).
+A mirror is kept at
 [github.com/KaushalprajapatiKP/canoncite](https://github.com/KaushalprajapatiKP/canoncite).
