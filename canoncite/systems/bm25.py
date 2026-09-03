@@ -11,7 +11,23 @@ import math
 import re
 from collections import Counter
 
-_TOKEN = re.compile(r"\w+", re.UNICODE)
+# `\w` excludes Unicode categories Mn and Mc, which is what Indic vowel signs and
+# viramas are, so a bare \w+ shatters every Devanagari, Gurmukhi or Tamil word at
+# each matra: तपःस्वाध्यायनिरतं tokenised as ["तप","स","व","ध","य","यन","रत"].
+# Combining marks must stay attached to the letter they modify.
+_MARKS = (
+    "\u0300-\u036F"          # combining diacriticals (IAST transliteration)
+    "\u0900-\u0903\u093A-\u094F\u0951-\u0957\u0962-\u0963"   # Devanagari
+    "\u0981-\u0983\u09BC\u09BE-\u09CD\u09D7\u09E2-\u09E3"     # Bengali
+    "\u0A01-\u0A03\u0A3C\u0A3E-\u0A4D\u0A51\u0A70-\u0A71\u0A75"  # Gurmukhi
+    "\u0A81-\u0A83\u0ABC\u0ABE-\u0ACD"                       # Gujarati
+    "\u0B01-\u0B03\u0B3C\u0B3E-\u0B57"                       # Oriya
+    "\u0B82\u0BBE-\u0BCD\u0BD7"                               # Tamil
+    "\u0C00-\u0C04\u0C3E-\u0C56"                             # Telugu
+    "\u0C81-\u0C83\u0CBC-\u0CD6"                             # Kannada
+    "\u0D00-\u0D03\u0D3B-\u0D57"                             # Malayalam
+)
+_TOKEN = re.compile(rf"[\w{_MARKS}]+", re.UNICODE)
 
 
 def tokenize(s: str) -> list[str]:
